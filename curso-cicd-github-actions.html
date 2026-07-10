@@ -288,7 +288,8 @@ details.more .inner{padding:.2rem 1.1rem .8rem}
     <a href="#s15"><span class="n">15</span>Workflows reutilizables</a>
     <a href="#s16"><span class="n">16</span>Lo que falta que sepas</a>
     <a href="#final"><span class="n">17</span>El workflow completo</a>
-    <a href="#recursos"><span class="n">18</span>Recursos y herramientas</a>
+    <a href="#gitlab"><span class="n">18</span>¿Y GitLab?</a>
+    <a href="#recursos"><span class="n">19</span>Recursos y herramientas</a>
   </nav>
 </aside>
 
@@ -350,6 +351,11 @@ details.more .inner{padding:.2rem 1.1rem .8rem}
     del curso no cambia al cambiar de stack. Si usás otro lenguaje (PHP, Ruby, Rust…),
     el patrón es exactamente el mismo: cambiá la action de <code>setup-*</code> y los
     comandos de build, y el resto queda igual.
+  </p>
+  <p>
+    ¿Tu equipo usa <strong>GitLab</strong> en vez de GitHub? Leé el curso igual:
+    los conceptos son los mismos, y la sección <a href="#gitlab">18</a> traduce
+    todo a GitLab CI/CD, con el pipeline equivalente completo.
   </p>
   <p>
     Las versiones de las actions (<code>@v4</code>, <code>@v5</code>, <code>@v1</code>)
@@ -2816,9 +2822,254 @@ jobs:
   </div>
 </section>
 
-<!-- ================= 18 ================= -->
+<!-- ================= 18 GITLAB ================= -->
+<section id="gitlab">
+  <span class="sec-num">18 · Otra plataforma</span>
+  <h2>¿Y GitLab? Los mismos conceptos, otra sintaxis</h2>
+  <p>
+    Todo lo conceptual de este curso —qué es CI/CD, separar build de deploy, ambientes,
+    secrets por ambiente, quality gates, rollback, aprobación manual antes de producción—
+    <strong>aplica idéntico en GitLab</strong>. Lo que cambia es la herramienta: GitLab no
+    usa GitHub Actions sino su propio sistema, <strong>GitLab CI/CD</strong>, con un único
+    archivo <code>.gitlab-ci.yml</code> en la raíz del repo y una sintaxis diferente.
+    Esta tabla traduce el vocabulario:
+  </p>
+
+  <div class="tbl-wrap"><table>
+    <tr><th>GitHub Actions</th><th>GitLab CI/CD</th><th>Nota</th></tr>
+    <tr><td>Workflows (varios .yml)</td><td><code>.gitlab-ci.yml</code> (uno, en la raíz)</td>
+      <td>Un solo archivo define todo el pipeline; se puede partir con <code>include:</code>.</td></tr>
+    <tr><td>Job</td><td>Job, agrupado en <code>stages</code></td>
+      <td>Los stages corren en orden (build → deploy); los jobs de un mismo stage, en paralelo.</td></tr>
+    <tr><td>Step (<code>run:</code>)</td><td>Líneas de <code>script:</code></td>
+      <td>Comandos de shell directos, uno por línea.</td></tr>
+    <tr><td>Action (<code>uses:</code>)</td><td>Imagen Docker + comandos</td>
+      <td>No hay marketplace de actions: cada job elige una <code>image:</code> que ya trae las herramientas (Maven, Node, etc.). Existe el CI/CD Catalog para components reutilizables.</td></tr>
+    <tr><td>Runner hosted</td><td>Shared runners de gitlab.com</td>
+      <td>Con minutos de cómputo gratis por mes, igual que GitHub.</td></tr>
+    <tr><td>Runner self-hosted</td><td>GitLab Runner self-managed</td>
+      <td>Mismo modelo: lo instalás en tu red y hace solo conexiones salientes. Vale toda la sección 04.</td></tr>
+    <tr><td><code>on: push / pull_request</code></td><td><code>rules:</code> por job</td>
+      <td>Cada job decide cuándo corre mirando variables como <code>$CI_COMMIT_BRANCH</code>.</td></tr>
+    <tr><td><code>workflow_dispatch</code></td><td>"Run pipeline" en la UI / <code>when: manual</code></td>
+      <td><code>when: manual</code> convierte un job en un botón — así se hace la aprobación a prod.</td></tr>
+    <tr><td>Secrets y variables</td><td>CI/CD Variables</td>
+      <td>Settings → CI/CD → Variables, con opciones <em>masked</em> (enmascarada en logs) y <em>protected</em>, y <strong>scope por environment</strong> — el mismo patrón de la sección 08.</td></tr>
+    <tr><td>Environments + reviewers</td><td>Environments + <code>when: manual</code></td>
+      <td>La pausa manual es gratis; las aprobaciones formales de <em>protected environments</em> requieren plan Premium.</td></tr>
+    <tr><td>upload/download-artifact</td><td><code>artifacts:</code></td>
+      <td>Más simple: lo que un job declara como artifact aparece <em>automáticamente</em> en los jobs de los stages siguientes.</td></tr>
+    <tr><td>Reusable workflows / composite</td><td><code>include:</code> + <code>extends:</code></td>
+      <td><code>extends:</code> hereda de un "job oculto" (nombre con punto) — lo usamos abajo.</td></tr>
+    <tr><td>Dependabot</td><td>Renovate</td>
+      <td>El bot de actualización de dependencias estándar en el ecosistema GitLab.</td></tr>
+  </table></div>
+
+  <p>
+    Con eso, el pipeline equivalente al de la sección 17. Primero el job de build
+    (cambia según tu stack — el selector de arriba también aplica acá):
+  </p>
+
+  <div data-tech-variant="java">
+  <div class="codeblock">
+    <div class="code-title">.gitlab-ci.yml — job de build (Java, Maven)</div>
+    <pre><code class="lang-yaml">stages: [build, deploy]            # el orden de ejecución del pipeline
+
+build:
+  stage: build
+  image: maven:3.9-eclipse-temurin-21   # la imagen Docker reemplaza a setup-java
+  variables:
+    MAVEN_OPTS: -Dmaven.repo.local=.m2/repository   # deja el repo local dentro del proyecto…
+  cache:
+    key:
+      files: [pom.xml]             # …para poder cachearlo entre pipelines
+    paths: [.m2/repository]
+  script:
+    - mvn -B -ntp verify           # tests como quality gate: si fallan, no hay deploy
+    - mvn -B -ntp package -DskipTests
+  artifacts:
+    paths: [target/*.war]          # pasa AUTOMÁTICO a los jobs del stage siguiente
+    expire_in: 1 week
+  rules:
+    - if: $CI_COMMIT_BRANCH        # correr en cualquier push a rama</code></pre>
+  </div>
+  </div>
+
+  <div data-tech-variant="node" hidden>
+  <div class="codeblock">
+    <div class="code-title">.gitlab-ci.yml — job de build (Node.js)</div>
+    <pre><code class="lang-yaml">stages: [build, deploy]            # el orden de ejecución del pipeline
+
+build:
+  stage: build
+  image: node:22-alpine              # la imagen Docker reemplaza a setup-node
+  cache:
+    key:
+      files: [package-lock.json]
+    paths: [.npm]
+  script:
+    - npm ci --cache .npm
+    - npm test                       # tests como quality gate: si fallan, no hay deploy
+    - npm run build
+    - tar czf app.tar.gz dist package.json package-lock.json
+  artifacts:
+    paths: [app.tar.gz]              # pasa AUTOMÁTICO a los jobs del stage siguiente
+    expire_in: 1 week
+  rules:
+    - if: $CI_COMMIT_BRANCH          # correr en cualquier push a rama</code></pre>
+  </div>
+  </div>
+
+  <div data-tech-variant="python" hidden>
+  <div class="codeblock">
+    <div class="code-title">.gitlab-ci.yml — job de build (Python)</div>
+    <pre><code class="lang-yaml">stages: [build, deploy]            # el orden de ejecución del pipeline
+
+build:
+  stage: build
+  image: python:3.12-slim            # la imagen Docker reemplaza a setup-python
+  variables:
+    PIP_CACHE_DIR: $CI_PROJECT_DIR/.cache/pip
+  cache:
+    key:
+      files: [requirements.txt]
+    paths: [.cache/pip]
+  script:
+    - pip install -r requirements.txt
+    - pytest                         # tests como quality gate: si fallan, no hay deploy
+    - tar czf app.tar.gz app/ requirements.txt
+  artifacts:
+    paths: [app.tar.gz]              # pasa AUTOMÁTICO a los jobs del stage siguiente
+    expire_in: 1 week
+  rules:
+    - if: $CI_COMMIT_BRANCH          # correr en cualquier push a rama</code></pre>
+  </div>
+  </div>
+
+  <div data-tech-variant="dotnet" hidden>
+  <div class="codeblock">
+    <div class="code-title">.gitlab-ci.yml — job de build (.NET)</div>
+    <pre><code class="lang-yaml">stages: [build, deploy]            # el orden de ejecución del pipeline
+
+build:
+  stage: build
+  image: mcr.microsoft.com/dotnet/sdk:8.0   # la imagen Docker reemplaza a setup-dotnet
+  script:
+    - dotnet test                    # tests como quality gate: si fallan, no hay deploy
+    - dotnet publish -c Release -o publish
+    - tar czf app.tar.gz -C publish .
+  artifacts:
+    paths: [app.tar.gz]              # pasa AUTOMÁTICO a los jobs del stage siguiente
+    expire_in: 1 week
+  rules:
+    - if: $CI_COMMIT_BRANCH          # correr en cualquier push a rama</code></pre>
+  </div>
+  </div>
+
+  <div data-tech-variant="go" hidden>
+  <div class="codeblock">
+    <div class="code-title">.gitlab-ci.yml — job de build (Go)</div>
+    <pre><code class="lang-yaml">stages: [build, deploy]            # el orden de ejecución del pipeline
+
+build:
+  stage: build
+  image: golang:1.24-alpine          # la imagen Docker reemplaza a setup-go
+  script:
+    - go test ./...                  # tests como quality gate: si fallan, no hay deploy
+    - CGO_ENABLED=0 go build -o miapp .
+  artifacts:
+    paths: [miapp]                   # pasa AUTOMÁTICO a los jobs del stage siguiente
+    expire_in: 1 week
+  rules:
+    - if: $CI_COMMIT_BRANCH          # correr en cualquier push a rama</code></pre>
+  </div>
+  </div>
+
+  <p>
+    Y el deploy, <strong>igual para todos los stacks</strong>: una plantilla
+    (<code>.deploy</code>, el "job oculto") y tres jobs concretos que la heredan con
+    <code>extends:</code> — el equivalente GitLab de nuestro job único con environment
+    dinámico. Fijate que <code>main</code> lleva <code>when: manual</code>: el pipeline
+    llega hasta ahí y <strong>espera tu click</strong> antes de tocar producción.
+  </p>
+
+  <div class="codeblock">
+    <div class="code-title">.gitlab-ci.yml — deploy (continúa el mismo archivo)</div>
+    <pre><code class="lang-yaml">.deploy:                             # nombre con punto = job oculto (plantilla)
+  stage: deploy
+  image: alpine:3.20                 # imagen mínima; le agregamos el cliente SSH
+  before_script:
+    - apk add --no-cache openssh-client
+    - eval $(ssh-agent -s)
+    - echo "$DEPLOY_SSH_KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh
+    - ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+  script:
+    # el artefacto del build ya está acá (los artifacts viajan solos entre stages);
+    # ajustá la ruta a tu stack: target/*.war, app.tar.gz o miapp
+    - scp target/*.war "$DEPLOY_USER@$DEPLOY_HOST:/opt/deploys/incoming/"
+    - ssh "$DEPLOY_USER@$DEPLOY_HOST" "bash -s" &lt; scripts/activar.sh
+    # activar.sh = el script de la sección 12 (health check + rollback), versionado en tu repo
+
+deploy-dev:
+  extends: .deploy                   # hereda todo de la plantilla
+  environment:
+    name: dev
+  rules:
+    - if: $CI_COMMIT_BRANCH == "develop"    # develop → dev, automático
+
+deploy-staging:
+  extends: .deploy
+  environment:
+    name: staging
+  rules:
+    - if: $CI_COMMIT_BRANCH =~ /^release\//  # release/* → staging, automático
+
+deploy-prod:
+  extends: .deploy
+  environment:
+    name: produccion
+    url: https://miapp.empresa.com
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      when: manual                   # ← main → produccion, ESPERA APROBACIÓN MANUAL
+      allow_failure: false           # sin esto, el pipeline se marca "passed" antes del click</code></pre>
+  </div>
+
+  <p>Los equivalentes del resto del curso, en dos líneas cada uno:</p>
+  <ul>
+    <li><strong>Secrets por ambiente (sección 08)</strong>: Settings → CI/CD → Variables;
+      creá <code>DEPLOY_HOST</code>, <code>DEPLOY_USER</code> y <code>DEPLOY_SSH_KEY</code>
+      tres veces, cada una con <em>Environment scope</em> <code>dev</code>,
+      <code>staging</code> y <code>produccion</code>, marcadas como <em>masked</em>.
+      GitLab elige el valor según el <code>environment:</code> del job — el mismo patrón.</li>
+    <li><strong>Concurrency (sección 16)</strong>: <code>resource_group: produccion</code>
+      en el job de deploy — nunca dos deploys simultáneos al mismo destino.</li>
+    <li><strong>Notificaciones (sección 13)</strong>: nativas — Settings → Integrations →
+      Slack (o email on failed pipelines). No hace falta un job de notificación.</li>
+    <li><strong>Branch protection (sección 11/16)</strong>: Settings → Repository →
+      Protected branches, y "Pipelines must succeed" en Merge requests.</li>
+    <li><strong>Validar el YAML (sección 16)</strong>: GitLab trae editor con lint
+      integrado — CI/CD → Pipeline editor. No necesitás herramienta externa.</li>
+    <li><strong>Secret scanning (sección 14)</strong>: agregá el template oficial
+      <code>Security/Secret-Detection.gitlab-ci.yml</code> con <code>include:</code>.</li>
+  </ul>
+
+  <div class="callout">
+    <span class="tag">Lo importante</span>
+    <p>
+      El servidor no se entera de qué plataforma usás: el usuario <code>deploy</code>,
+      los directorios <code>/opt/deploys</code>, el script <code>activar.sh</code> con
+      health check y rollback (sección 12) y el servicio systemd son <strong>exactamente
+      los mismos</strong>. Si mañana migrás de GitHub a GitLab (o al revés), solo
+      reescribís el YAML del pipeline; toda la infraestructura de deploy queda intacta.
+    </p>
+  </div>
+</section>
+
+<!-- ================= 19 ================= -->
 <section id="recursos">
-  <span class="sec-num">18 · Para seguir</span>
+  <span class="sec-num">19 · Para seguir</span>
   <h2>Recursos y herramientas validadas por la comunidad</h2>
   <ul>
     <li><a href="https://docs.github.com/actions" target="_blank" rel="noopener">Documentación oficial de GitHub Actions</a> — la referencia; el schema completo del YAML está en "Workflow syntax".</li>
@@ -2828,6 +3079,7 @@ jobs:
     <li><a href="https://github.com/slackapi/slack-github-action" target="_blank" rel="noopener">slackapi/slack-github-action</a> — notificaciones a Slack, mantenida por Slack.</li>
     <li><a href="https://github.com/rhysd/actionlint" target="_blank" rel="noopener">actionlint</a> — linter de workflows; atrapa errores de YAML y de expresiones antes de pushear.</li>
     <li><strong>Extensión "GitHub Actions" para VS Code</strong> (oficial de GitHub) — autocompletado, validación y monitoreo de runs desde el editor. Si usás VS Code, instalala: es la herramienta puntual que más te conviene para escribir estos archivos.</li>
+    <li><a href="https://docs.gitlab.com/ee/ci/" target="_blank" rel="noopener">Documentación de GitLab CI/CD</a> — la referencia para la sección 18; el schema completo está en "CI/CD YAML syntax reference".</li>
     <li><a href="https://docs.github.com/actions/security-for-github-actions" target="_blank" rel="noopener">Security hardening for GitHub Actions</a> — la guía oficial de seguridad; ampliada respecto a la sección 14.</li>
   </ul>
   <p class="footer-note">
