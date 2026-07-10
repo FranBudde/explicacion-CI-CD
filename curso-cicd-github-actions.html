@@ -1,0 +1,2948 @@
+<title>CI/CD con GitHub Actions — de cero a deploy</title>
+<style>
+/* ============ TOKENS ============ */
+:root{
+  --bg:#f6f8f9;
+  --surface:#ffffff;
+  --surface-2:#eef2f4;
+  --ink:#182430;
+  --muted:#54666f;
+  --line:#d9e2e6;
+  --accent:#0e7c7b;
+  --accent-ink:#ffffff;
+  --accent-soft:#e0f0ef;
+  --dev:#7c3aed;
+  --stg:#b45309;
+  --prod:#15803d;
+  --danger:#b3261e;
+  --code-bg:#131c24;
+  --code-ink:#d7e2ea;
+  --code-key:#7cc7ff;
+  --code-str:#a8d98a;
+  --code-com:#6d8291;
+  --code-expr:#ffc078;
+  --code-num:#e0a3ff;
+  --shadow:0 1px 3px rgba(24,36,48,.08),0 8px 24px rgba(24,36,48,.06);
+  --font-display:"Charter","Iowan Old Style","Palatino Linotype",Georgia,serif;
+  --font-body:"Segoe UI",system-ui,-apple-system,sans-serif;
+  --font-mono:"Cascadia Code","JetBrains Mono",Consolas,"SF Mono",monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#0d141b;
+    --surface:#141d26;
+    --surface-2:#1a2530;
+    --ink:#dae4ec;
+    --muted:#8fa2ae;
+    --line:#26333f;
+    --accent:#43c3ba;
+    --accent-ink:#08201e;
+    --accent-soft:#123534;
+    --dev:#a78bfa;
+    --stg:#e5a04a;
+    --prod:#5cc17a;
+    --danger:#ef7a72;
+    --code-bg:#0a1118;
+    --shadow:0 1px 3px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.3);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0d141b; --surface:#141d26; --surface-2:#1a2530; --ink:#dae4ec;
+  --muted:#8fa2ae; --line:#26333f; --accent:#43c3ba; --accent-ink:#08201e;
+  --accent-soft:#123534; --dev:#a78bfa; --stg:#e5a04a; --prod:#5cc17a;
+  --danger:#ef7a72; --code-bg:#0a1118;
+  --shadow:0 1px 3px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.3);
+}
+:root[data-theme="light"]{
+  --bg:#f6f8f9; --surface:#ffffff; --surface-2:#eef2f4; --ink:#182430;
+  --muted:#54666f; --line:#d9e2e6; --accent:#0e7c7b; --accent-ink:#ffffff;
+  --accent-soft:#e0f0ef; --dev:#7c3aed; --stg:#b45309; --prod:#15803d;
+  --danger:#b3261e; --code-bg:#131c24;
+  --shadow:0 1px 3px rgba(24,36,48,.08),0 8px 24px rgba(24,36,48,.06);
+}
+
+/* ============ BASE ============ */
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion: reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{animation:none!important;transition:none!important}
+}
+body{
+  margin:0;background:var(--bg);color:var(--ink);
+  font-family:var(--font-body);font-size:16.5px;line-height:1.65;
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,h4{font-family:var(--font-display);line-height:1.2;text-wrap:balance;color:var(--ink)}
+h2{font-size:1.9rem;margin:0 0 .4rem}
+h3{font-size:1.25rem;margin:2.2rem 0 .6rem}
+p{margin:.9rem 0;max-width:72ch}
+ul,ol{max-width:70ch;padding-left:1.4rem}
+li{margin:.35rem 0}
+a{color:var(--accent);text-decoration-thickness:1px;text-underline-offset:3px}
+strong{color:var(--ink)}
+code:not(pre code){
+  font-family:var(--font-mono);font-size:.86em;
+  background:var(--surface-2);border:1px solid var(--line);
+  border-radius:4px;padding:.08em .35em;white-space:nowrap;
+}
+
+/* ============ PROGRESS ============ */
+#progress{position:fixed;top:0;left:0;height:3px;background:var(--accent);width:0;z-index:50}
+
+/* ============ LAYOUT ============ */
+.wrap{display:grid;grid-template-columns:270px minmax(0,1fr);gap:0;max-width:1240px;margin:0 auto}
+aside{
+  border-right:1px solid var(--line);
+  padding:1.6rem 1rem 3rem 1.4rem;
+  position:sticky;top:0;height:100vh;overflow-y:auto;
+  font-size:.85rem;scrollbar-width:thin;
+}
+aside .brand{
+  font-family:var(--font-mono);font-size:.72rem;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--muted);margin-bottom:1.2rem;display:block;
+}
+aside nav{display:flex;flex-direction:column;gap:1px}
+aside nav a{
+  color:var(--muted);text-decoration:none;padding:.32rem .6rem;border-radius:6px;
+  border-left:2px solid transparent;line-height:1.35;
+}
+aside nav a:hover{color:var(--ink);background:var(--surface-2)}
+aside nav a.active{color:var(--accent);border-left-color:var(--accent);background:var(--accent-soft);font-weight:600}
+aside nav a .n{font-family:var(--font-mono);font-size:.68rem;color:var(--muted);margin-right:.45rem}
+aside nav a.active .n{color:var(--accent)}
+main{padding:0 3rem 6rem;min-width:0}
+
+@media (max-width:940px){
+  .wrap{grid-template-columns:1fr}
+  aside{position:static;height:auto;border-right:none;border-bottom:1px solid var(--line);padding:1rem 1.2rem}
+  aside nav{flex-direction:row;flex-wrap:wrap;gap:.35rem}
+  aside nav a{border:1px solid var(--line);border-radius:99px;padding:.25rem .7rem}
+  aside nav a.active{border-color:var(--accent)}
+  main{padding:0 1.2rem 4rem}
+}
+
+/* ============ HERO ============ */
+.hero{padding:3.4rem 0 2.4rem;border-bottom:1px solid var(--line)}
+.hero .kicker{
+  font-family:var(--font-mono);font-size:.75rem;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--accent);margin-bottom:.8rem;
+}
+.hero h1{font-size:clamp(2rem,4.5vw,3.1rem);margin:0 0 1rem;font-weight:700}
+.hero .lede{font-size:1.12rem;color:var(--muted);max-width:62ch}
+.hero .pill-row{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:1.4rem}
+.pill{
+  font-family:var(--font-mono);font-size:.72rem;padding:.3rem .75rem;
+  border:1px solid var(--line);border-radius:99px;color:var(--muted);background:var(--surface);
+}
+
+/* ============ SECTIONS ============ */
+section{padding:3rem 0 1rem;border-bottom:1px solid var(--line);scroll-margin-top:1.5rem}
+section:last-of-type{border-bottom:none}
+.sec-num{
+  font-family:var(--font-mono);font-size:.75rem;letter-spacing:.14em;
+  color:var(--accent);text-transform:uppercase;display:block;margin-bottom:.35rem;
+}
+
+/* ============ CODE ============ */
+.codeblock{position:relative;margin:1.3rem 0;max-width:100%}
+.codeblock .code-title{
+  font-family:var(--font-mono);font-size:.72rem;color:var(--code-com);
+  background:var(--code-bg);border-radius:10px 10px 0 0;padding:.55rem 1rem .1rem;
+  border:1px solid var(--line);border-bottom:none;
+}
+.codeblock pre{
+  margin:0;background:var(--code-bg);color:var(--code-ink);
+  border-radius:10px;padding:1rem 1.1rem;overflow-x:auto;
+  font-family:var(--font-mono);font-size:.82rem;line-height:1.55;
+  border:1px solid var(--line);
+}
+.codeblock .code-title + pre{border-radius:0 0 10px 10px;padding-top:.6rem}
+.codeblock button.copy{
+  position:absolute;top:.5rem;right:.55rem;
+  font-family:var(--font-mono);font-size:.68rem;cursor:pointer;
+  background:rgba(255,255,255,.08);color:var(--code-ink);
+  border:1px solid rgba(255,255,255,.15);border-radius:6px;padding:.25rem .6rem;
+}
+.codeblock button.copy:hover{background:rgba(255,255,255,.16)}
+.codeblock button.copy:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.tok-key{color:var(--code-key)}
+.tok-str{color:var(--code-str)}
+.tok-com{color:var(--code-com);font-style:italic}
+.tok-expr{color:var(--code-expr)}
+.tok-num{color:var(--code-num)}
+
+/* ============ CALLOUTS ============ */
+.callout{
+  border:1px solid var(--line);border-left:3px solid var(--accent);
+  background:var(--surface);border-radius:0 10px 10px 0;
+  padding:.9rem 1.2rem;margin:1.3rem 0;max-width:74ch;font-size:.95rem;
+}
+.callout .tag{
+  font-family:var(--font-mono);font-size:.68rem;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--accent);display:block;margin-bottom:.25rem;font-weight:700;
+}
+.callout.warn{border-left-color:var(--stg)}
+.callout.warn .tag{color:var(--stg)}
+.callout.danger{border-left-color:var(--danger)}
+.callout.danger .tag{color:var(--danger)}
+.callout p{margin:.3rem 0}
+
+/* ============ TABLES ============ */
+.tbl-wrap{overflow-x:auto;margin:1.3rem 0;border:1px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%;font-size:.9rem;background:var(--surface)}
+th,td{padding:.6rem .9rem;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+th{
+  font-family:var(--font-mono);font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--muted);background:var(--surface-2);
+}
+tr:last-child td{border-bottom:none}
+td:first-child{font-weight:600;white-space:nowrap}
+
+/* ============ DIAGRAMS ============ */
+figure{margin:1.6rem 0;padding:0}
+figure .svg-wrap{
+  overflow-x:auto;background:var(--surface);border:1px solid var(--line);
+  border-radius:12px;padding:1rem;box-shadow:var(--shadow);
+}
+figure svg{display:block;margin:0 auto;min-width:640px;width:100%;height:auto}
+figcaption{font-size:.82rem;color:var(--muted);margin-top:.6rem;text-align:center}
+.d-box{fill:var(--surface-2);stroke:var(--line);stroke-width:1.2;rx:8}
+.d-box-accent{fill:var(--accent-soft);stroke:var(--accent);stroke-width:1.4}
+.d-txt{fill:var(--ink);font-family:var(--font-body);font-size:12.5px}
+.d-txt-b{fill:var(--ink);font-family:var(--font-body);font-size:13px;font-weight:600}
+.d-txt-m{fill:var(--muted);font-family:var(--font-mono);font-size:10px}
+.d-txt-mono{fill:var(--ink);font-family:var(--font-mono);font-size:11px}
+.d-line{stroke:var(--muted);stroke-width:1.4;fill:none}
+.d-line-a{stroke:var(--accent);stroke-width:1.6;fill:none}
+.d-dash{stroke-dasharray:4 4}
+.d-dev{stroke:var(--dev)} .f-dev{fill:var(--dev)}
+.d-stg{stroke:var(--stg)} .f-stg{fill:var(--stg)}
+.d-prod{stroke:var(--prod)} .f-prod{fill:var(--prod)}
+.d-brace{stroke:var(--muted);stroke-width:1.1;fill:none}
+
+/* env chips */
+.env{
+  font-family:var(--font-mono);font-size:.72rem;font-weight:700;
+  padding:.12em .55em;border-radius:5px;white-space:nowrap;
+}
+.env.dev{color:var(--dev);background:color-mix(in srgb,var(--dev) 12%,transparent);border:1px solid color-mix(in srgb,var(--dev) 35%,transparent)}
+.env.stg{color:var(--stg);background:color-mix(in srgb,var(--stg) 12%,transparent);border:1px solid color-mix(in srgb,var(--stg) 35%,transparent)}
+.env.prod{color:var(--prod);background:color-mix(in srgb,var(--prod) 12%,transparent);border:1px solid color-mix(in srgb,var(--prod) 35%,transparent)}
+
+details.more{
+  border:1px solid var(--line);border-radius:10px;background:var(--surface);
+  margin:1.2rem 0;max-width:74ch;
+}
+details.more summary{
+  cursor:pointer;padding:.7rem 1.1rem;font-weight:600;font-size:.93rem;color:var(--accent);
+}
+details.more summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+details.more[open] summary{border-bottom:1px solid var(--line)}
+details.more .inner{padding:.2rem 1.1rem .8rem}
+
+.footer-note{color:var(--muted);font-size:.85rem;margin-top:3rem;border-top:1px solid var(--line);padding-top:1.4rem;max-width:74ch}
+
+/* ============ TECH SELECTOR ============ */
+.tech-bar{
+  position:sticky;top:0;z-index:30;
+  display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;
+  padding:.65rem 0;background:var(--bg);border-bottom:1px solid var(--line);
+}
+.tech-label{
+  font-family:var(--font-mono);font-size:.68rem;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--muted);
+}
+.tech-switch{display:flex;gap:.35rem;flex-wrap:wrap}
+.tech-switch button{
+  font-family:var(--font-mono);font-size:.75rem;padding:.32rem .85rem;
+  border-radius:99px;border:1px solid var(--line);background:var(--surface);
+  color:var(--muted);cursor:pointer;
+}
+.tech-switch button:hover{color:var(--ink);border-color:var(--muted)}
+.tech-switch button.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:700}
+.tech-switch button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+[data-tech-variant][hidden]{display:none!important}
+</style>
+
+<div id="progress"></div>
+<div class="wrap">
+<aside>
+  <span class="brand">CI/CD · GitHub Actions</span>
+  <nav id="toc">
+    <a href="#intro"><span class="n">00</span>Cómo usar este curso</a>
+    <a href="#s1"><span class="n">01</span>Qué es CI/CD</a>
+    <a href="#s2"><span class="n">02</span>Anatomía de un workflow</a>
+    <a href="#s3"><span class="n">03</span>Triggers</a>
+    <a href="#s4"><span class="n">04</span>Runners: hosted vs self-hosted</a>
+    <a href="#s5"><span class="n">05</span>Build del artefacto</a>
+    <a href="#s6"><span class="n">06</span>Artifacts entre jobs</a>
+    <a href="#s7"><span class="n">07</span>Environments y aprobaciones</a>
+    <a href="#s8"><span class="n">08</span>Secrets y variables</a>
+    <a href="#s9"><span class="n">09</span>Estrategias de despliegue</a>
+    <a href="#s10"><span class="n">10</span>Ramas → ambientes</a>
+    <a href="#s11"><span class="n">11</span>Tests y quality gates</a>
+    <a href="#s12"><span class="n">12</span>Rollback</a>
+    <a href="#s13"><span class="n">13</span>Notificaciones</a>
+    <a href="#s14"><span class="n">14</span>Seguridad</a>
+    <a href="#s15"><span class="n">15</span>Workflows reutilizables</a>
+    <a href="#s16"><span class="n">16</span>Lo que falta que sepas</a>
+    <a href="#final"><span class="n">17</span>El workflow completo</a>
+    <a href="#recursos"><span class="n">18</span>Recursos y herramientas</a>
+  </nav>
+</aside>
+
+<main>
+
+<div class="tech-bar" role="group" aria-label="Elegí tu lenguaje o stack">
+  <span class="tech-label">Ver ejemplos para:</span>
+  <div class="tech-switch">
+    <button type="button" data-tech="java" class="on" aria-pressed="true">Java (.war)</button>
+    <button type="button" data-tech="node" aria-pressed="false">Node.js</button>
+    <button type="button" data-tech="python" aria-pressed="false">Python</button>
+    <button type="button" data-tech="dotnet" aria-pressed="false">.NET</button>
+    <button type="button" data-tech="go" aria-pressed="false">Go</button>
+  </div>
+</div>
+
+<div class="hero">
+  <div class="kicker">Mini-curso · de cero a producción</div>
+  <h1>CI/CD con GitHub Actions, para el stack que uses</h1>
+  <p class="lede">
+    Un recorrido completo: qué es CI/CD, cómo funciona GitHub Actions por dentro,
+    y cómo armar un pipeline real que compila tu proyecto, genera el artefacto
+    desplegable y lo lleva por SSH al servidor correcto según el ambiente — con
+    aprobación manual antes de tocar producción. Los conceptos son universales;
+    <strong>elegí tu lenguaje arriba</strong> y los ejemplos de código se adaptan.
+  </p>
+  <div class="pill-row">
+    <span class="pill">actions/checkout@v5</span>
+    <span class="pill" data-tech-variant="java">setup-java@v5</span>
+    <span class="pill" data-tech-variant="node" hidden>setup-node@v4</span>
+    <span class="pill" data-tech-variant="python" hidden>setup-python@v5</span>
+    <span class="pill" data-tech-variant="dotnet" hidden>setup-dotnet@v4</span>
+    <span class="pill" data-tech-variant="go" hidden>setup-go@v5</span>
+    <span class="pill">upload-artifact@v4</span>
+    <span class="pill">appleboy/ssh-action@v1</span>
+    <span class="env dev">dev</span>
+    <span class="env stg">staging</span>
+    <span class="env prod">producción</span>
+  </div>
+</div>
+
+<!-- ================= 00 ================= -->
+<section id="intro">
+  <span class="sec-num">00 · Antes de empezar</span>
+  <h2>Cómo usar este curso</h2>
+  <p>
+    Está pensado para leerse en orden: cada sección se apoya en la anterior.
+    Los bloques de código YAML son reales y funcionan tal cual (los podés copiar
+    con el botón <strong>Copiar</strong>); los comentarios dentro del código explican
+    cada línea. Al final hay un <a href="#final">workflow completo</a> que combina todo:
+    <em>push → compilar → testear → generar el artefacto →
+    desplegar por SSH al servidor del ambiente que corresponda</em>.
+  </p>
+  <p>
+    <strong>El selector de arriba</strong> ("Ver ejemplos para:") controla los ejemplos
+    específicos de cada tecnología: comandos de build y tests, empaquetado, script de
+    despliegue y el workflow final. Todo lo conceptual —triggers, runners, environments,
+    secrets, rollback, seguridad— es idéntico para cualquier lenguaje; por eso el 80%
+    del curso no cambia al cambiar de stack. Si usás otro lenguaje (PHP, Ruby, Rust…),
+    el patrón es exactamente el mismo: cambiá la action de <code>setup-*</code> y los
+    comandos de build, y el resto queda igual.
+  </p>
+  <p>
+    Las versiones de las actions (<code>@v4</code>, <code>@v5</code>, <code>@v1</code>)
+    son las líneas estables y documentadas a mediados de 2026. Estas versiones "mayores"
+    se actualizan seguido (por ejemplo, <code>actions/checkout</code> ya publicó v7 y
+    <code>upload-artifact</code> v7): en la sección <a href="#s16">16</a> te muestro
+    cómo mantenerlas al día automáticamente con Dependabot, en lugar de perseguirlas a mano.
+  </p>
+</section>
+
+<!-- ================= 01 ================= -->
+<section id="s1">
+  <span class="sec-num">01 · Fundamentos</span>
+  <h2>Qué es CI/CD</h2>
+  <p>
+    Hoy tu flujo probablemente sea: programás, compilás o preparás la app en tu máquina,
+    generás el paquete desplegable (un <code>.war</code>, un bundle de Node, un binario…),
+    lo copiás al servidor a mano, reiniciás el servicio y cruzás los dedos.
+    CI/CD es <strong>automatizar ese camino completo</strong> para que cada cambio de código
+    recorra siempre los mismos pasos, verificados, sin intervención humana (o con la mínima
+    que vos decidas).
+  </p>
+  <p>La sigla junta tres prácticas distintas que conviene separar:</p>
+  <ul>
+    <li>
+      <strong>Integración Continua (CI)</strong>: cada vez que alguien sube código,
+      una máquina lo compila y corre los tests <em>automáticamente</em>. El objetivo es
+      detectar roturas a los minutos del commit, no dos semanas después cuando alguien
+      intenta armar el release. "Integrar" viene de integrar el trabajo de todos en una
+      rama común, seguido.
+    </li>
+    <li>
+      <strong>Entrega Continua (Continuous Delivery)</strong>: además de compilar y testear,
+      el pipeline deja listo el <strong>artefacto desplegable</strong> en cada pasada.
+      Desplegar a producción sigue siendo una <em>decisión humana</em>
+      (un botón, una aprobación), pero es trivial porque todo lo anterior ya está automatizado
+      y probado.
+    </li>
+    <li>
+      <strong>Despliegue Continuo (Continuous Deployment)</strong>: se elimina también ese
+      botón. Si el código pasa todos los controles, va a producción solo. Requiere mucha
+      confianza en tus tests; casi nadie arranca por acá.
+    </li>
+  </ul>
+
+  <figure>
+    <div class="svg-wrap">
+    <svg viewBox="0 0 860 250" role="img" aria-label="Diagrama del flujo CI/CD: commit, build, tests, artefacto, aprobación y deploy, con llaves que marcan qué abarca CI, entrega continua y despliegue continuo">
+      <defs>
+        <marker id="ar1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" fill="var(--muted)"/>
+        </marker>
+      </defs>
+      <!-- pipeline boxes -->
+      <rect class="d-box" x="20" y="60" width="110" height="52" rx="8"/>
+      <text class="d-txt-b" x="75" y="82" text-anchor="middle">git push</text>
+      <text class="d-txt-m" x="75" y="98" text-anchor="middle">tu commit</text>
+
+      <rect class="d-box" x="170" y="60" width="110" height="52" rx="8"/>
+      <text class="d-txt-b" x="225" y="82" text-anchor="middle">Build</text>
+      <text class="d-txt-m" x="225" y="98" text-anchor="middle">compilar / preparar</text>
+
+      <rect class="d-box" x="320" y="60" width="110" height="52" rx="8"/>
+      <text class="d-txt-b" x="375" y="82" text-anchor="middle">Tests</text>
+      <text class="d-txt-m" x="375" y="98" text-anchor="middle">suite automática</text>
+
+      <rect class="d-box d-box-accent" x="470" y="60" width="110" height="52" rx="8"/>
+      <text class="d-txt-b" x="525" y="82" text-anchor="middle">Artefacto</text>
+      <text class="d-txt-m" x="525" y="98" text-anchor="middle">.war / bundle / binario</text>
+
+      <rect class="d-box" x="620" y="60" width="90" height="52" rx="8"/>
+      <text class="d-txt-b" x="665" y="82" text-anchor="middle">Aprobar</text>
+      <text class="d-txt-m" x="665" y="98" text-anchor="middle">humano ✋</text>
+
+      <rect class="d-box" x="750" y="60" width="95" height="52" rx="8"/>
+      <text class="d-txt-b" x="797" y="82" text-anchor="middle">Deploy</text>
+      <text class="d-txt-m" x="797" y="98" text-anchor="middle">producción</text>
+
+      <!-- arrows -->
+      <line class="d-line" x1="130" y1="86" x2="167" y2="86" marker-end="url(#ar1)"/>
+      <line class="d-line" x1="280" y1="86" x2="317" y2="86" marker-end="url(#ar1)"/>
+      <line class="d-line" x1="430" y1="86" x2="467" y2="86" marker-end="url(#ar1)"/>
+      <line class="d-line" x1="580" y1="86" x2="617" y2="86" marker-end="url(#ar1)"/>
+      <line class="d-line" x1="710" y1="86" x2="747" y2="86" marker-end="url(#ar1)"/>
+
+      <!-- braces -->
+      <path class="d-brace" d="M170 135 v10 h260 v-10"/>
+      <text class="d-txt-mono" x="300" y="165" text-anchor="middle">Integración Continua (CI)</text>
+
+      <path class="d-brace" d="M170 185 v10 h410 v-10"/>
+      <text class="d-txt-mono" x="375" y="215" text-anchor="middle">Entrega Continua — el artefacto queda siempre listo</text>
+
+      <path class="d-brace" d="M620 135 v10 h225 v-10"/>
+      <text class="d-txt-mono" x="732" y="165" text-anchor="middle">sin el paso "Aprobar" =</text>
+      <text class="d-txt-mono" x="732" y="180" text-anchor="middle">Despliegue Continuo</text>
+    </svg>
+    </div>
+    <figcaption>Las tres prácticas son el mismo pipeline con distinto punto de corte.</figcaption>
+  </figure>
+
+  <div class="callout">
+    <span class="tag">Para tu caso</span>
+    <p>
+      El plan de este curso es: <strong>despliegue continuo a dev</strong> (cada push
+      despliega solo), y <strong>entrega continua a staging y producción</strong>
+      (el pipeline prepara todo, pero producción espera tu aprobación manual).
+      Es el balance más usado en la industria.
+    </p>
+  </div>
+</section>
+
+<!-- ================= 02 ================= -->
+<section id="s2">
+  <span class="sec-num">02 · La herramienta</span>
+  <h2>Anatomía de un workflow de GitHub Actions</h2>
+  <p>
+    GitHub Actions es el sistema de CI/CD integrado en GitHub. No tenés que instalar
+    ningún servidor: escribís un archivo de texto en tu repo y GitHub se encarga de
+    ejecutarlo. El vocabulario, de afuera hacia adentro:
+  </p>
+  <ul>
+    <li><strong>Workflow</strong>: un archivo YAML dentro de <code>.github/workflows/</code>
+      en tu repo. Define <em>cuándo</em> se ejecuta y <em>qué</em> hace. Podés tener varios.</li>
+    <li><strong>Job</strong>: una unidad de trabajo dentro del workflow. Cada job corre en una
+      <strong>máquina limpia y separada</strong>. Por defecto los jobs corren en paralelo;
+      con <code>needs:</code> los encadenás.</li>
+    <li><strong>Step</strong>: un paso dentro de un job. Puede ser un comando de shell
+      (<code>run:</code>) o una <em>action</em> (<code>uses:</code>). Los steps de un job
+      corren en orden, en la misma máquina, y comparten el sistema de archivos.</li>
+    <li><strong>Action</strong>: un paso empaquetado y reutilizable, publicado por GitHub o
+      por la comunidad. <code>actions/checkout</code> (clona tu repo) o las
+      <code>setup-*</code> (instalan el JDK, Node, Python, .NET o Go) son actions.
+      Son el "gestor de paquetes" de los pipelines.</li>
+    <li><strong>Runner</strong>: la máquina que ejecuta un job. Puede ser de GitHub (hosted)
+      o tuya (self-hosted) — lo vemos en la sección <a href="#s4">04</a>.</li>
+  </ul>
+
+  <figure>
+    <div class="svg-wrap">
+    <svg viewBox="0 0 860 300" role="img" aria-label="Diagrama de la estructura: un workflow contiene jobs, cada job corre en un runner y contiene steps">
+      <defs>
+        <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" fill="var(--muted)"/>
+        </marker>
+      </defs>
+      <!-- workflow container -->
+      <rect x="15" y="15" width="830" height="270" rx="12" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-dasharray="6 4"/>
+      <text class="d-txt-mono" x="30" y="38" fill="var(--accent)">workflow: .github/workflows/ci-cd.yml</text>
+      <text class="d-txt-m" x="30" y="54">on: push  ← trigger</text>
+
+      <!-- job build -->
+      <rect class="d-box" x="40" y="75" width="330" height="190" rx="10"/>
+      <text class="d-txt-b" x="55" y="100">job: build</text>
+      <text class="d-txt-m" x="55" y="116">runs-on: ubuntu-latest (runner)</text>
+      <rect class="d-box d-box-accent" x="55" y="130" width="300" height="26" rx="6"/>
+      <text class="d-txt-mono" x="65" y="147">step 1 · uses: actions/checkout@v5</text>
+      <rect class="d-box d-box-accent" x="55" y="162" width="300" height="26" rx="6"/>
+      <text class="d-txt-mono" x="65" y="179">step 2 · uses: setup del lenguaje</text>
+      <rect class="d-box d-box-accent" x="55" y="194" width="300" height="26" rx="6"/>
+      <text class="d-txt-mono" x="65" y="211">step 3 · run: build + tests</text>
+      <rect class="d-box d-box-accent" x="55" y="226" width="300" height="26" rx="6"/>
+      <text class="d-txt-mono" x="65" y="243">step 4 · uses: upload-artifact@v4</text>
+
+      <!-- arrow needs -->
+      <line class="d-line" x1="370" y1="170" x2="485" y2="170" marker-end="url(#ar2)"/>
+      <text class="d-txt-m" x="427" y="160" text-anchor="middle">needs: build</text>
+
+      <!-- job deploy -->
+      <rect class="d-box" x="490" y="75" width="330" height="190" rx="10"/>
+      <text class="d-txt-b" x="505" y="100">job: deploy</text>
+      <text class="d-txt-m" x="505" y="116">runs-on: ubuntu-latest (otro runner limpio)</text>
+      <rect class="d-box d-box-accent" x="505" y="130" width="300" height="26" rx="6"/>
+      <text class="d-txt-mono" x="515" y="147">step 1 · uses: download-artifact@v4</text>
+      <rect class="d-box d-box-accent" x="505" y="162" width="300" height="26" rx="6"/>
+      <text class="d-txt-mono" x="515" y="179">step 2 · uses: appleboy/scp-action@v1</text>
+      <rect class="d-box d-box-accent" x="505" y="194" width="300" height="26" rx="6"/>
+      <text class="d-txt-mono" x="515" y="211">step 3 · uses: appleboy/ssh-action@v1</text>
+      <text class="d-txt-m" x="505" y="250">environment: produccion</text>
+    </svg>
+    </div>
+    <figcaption>Un workflow contiene jobs; cada job corre en su propio runner y ejecuta steps en orden.</figcaption>
+  </figure>
+
+  <p>El "hola mundo" mínimo, con cada parte comentada:</p>
+  <div class="codeblock">
+    <div class="code-title">.github/workflows/hola.yml</div>
+    <pre><code class="lang-yaml">name: Mi primer workflow        # nombre visible en la pestaña "Actions" del repo
+
+on: push                        # trigger: se ejecuta en cada push a cualquier rama
+
+jobs:
+  saludar:                      # id del job (elegís vos el nombre)
+    runs-on: ubuntu-latest      # runner: máquina Linux provista por GitHub
+    steps:
+      - name: Clonar el repositorio
+        uses: actions/checkout@v5    # "uses" = ejecutar una action publicada
+
+      - name: Saludar
+        run: echo "Hola desde el runner, commit $GITHUB_SHA"   # "run" = comando de shell</code></pre>
+  </div>
+
+  <div class="callout">
+    <span class="tag">Detalle clave</span>
+    <p>
+      El runner arranca <strong>vacío</strong>: tu código no está ahí hasta que un step
+      lo clona con <code>actions/checkout</code>. Por eso casi todos los workflows
+      empiezan con ese paso. Y como cada job corre en una máquina distinta, lo que un
+      job genera (tu artefacto) <strong>no existe</strong> en el siguiente job,
+      salvo que lo pases explícitamente — de eso se ocupan los artifacts (sección <a href="#s6">06</a>).
+    </p>
+  </div>
+</section>
+
+<!-- ================= 03 ================= -->
+<section id="s3">
+  <span class="sec-num">03 · Cuándo se ejecuta</span>
+  <h2>Triggers: <code>on:</code></h2>
+  <p>
+    El bloque <code>on:</code> define qué eventos de GitHub disparan el workflow.
+    Los cuatro que vas a usar en la práctica:
+  </p>
+
+  <div class="tbl-wrap"><table>
+    <tr><th>Trigger</th><th>Se dispara cuando…</th><th>Usalo para…</th></tr>
+    <tr><td><code>push</code></td>
+      <td>Alguien sube commits a una rama (o un tag) del repo.</td>
+      <td>El pipeline principal: compilar, testear y desplegar. Filtrá por rama para no correr en todas.</td></tr>
+    <tr><td><code>pull_request</code></td>
+      <td>Se abre o actualiza un PR hacia una rama.</td>
+      <td>Validar el código <em>antes</em> de que entre a la rama: compila + tests, sin desplegar nada.</td></tr>
+    <tr><td><code>workflow_dispatch</code></td>
+      <td>Vos apretás un botón "Run workflow" en la UI de GitHub (o via API).</td>
+      <td>Ejecuciones manuales: re-desplegar, desplegar una versión puntual, correr un rollback.</td></tr>
+    <tr><td><code>push</code> a tags</td>
+      <td>Se pushea un tag (ej. <code>v1.4.0</code>).</td>
+      <td>Releases versionados: "cuando taggeo, se construye y publica esa versión exacta".</td></tr>
+  </table></div>
+
+  <div class="codeblock">
+    <div class="code-title">Los cuatro combinados</div>
+    <pre><code class="lang-yaml">on:
+  push:
+    branches: [main, develop]        # solo pushes a estas ramas
+    # también acepta patrones: 'release/**'
+    tags: ['v*.*.*']                 # y pushes de tags tipo v1.4.0 (ver nota abajo)
+  pull_request:
+    branches: [main]                 # PRs que apuntan a main
+  workflow_dispatch:                 # botón manual en la UI
+    inputs:                          # podés pedir parámetros al que lo ejecuta
+      environment:
+        description: 'Ambiente destino'
+        type: choice
+        options: [dev, staging, produccion]</code></pre>
+  </div>
+  <p>
+    Para tags no hay una clave separada: se filtran dentro del mismo <code>push</code>
+    con <code>tags: ['v*.*.*']</code>. Podés combinar <code>branches:</code> y
+    <code>tags:</code> en el mismo bloque <code>push</code> (matchea si cumple cualquiera de los dos).
+  </p>
+
+  <div class="callout">
+    <span class="tag">Regla práctica</span>
+    <p>
+      <code>pull_request</code> = <strong>verificar sin desplegar</strong>.
+      <code>push</code> a ramas = <strong>desplegar según la rama</strong>.
+      <code>workflow_dispatch</code> = <strong>tu botón de emergencia y de control manual</strong>.
+      Agregá siempre <code>workflow_dispatch</code> a tu pipeline principal: no cuesta nada
+      y te salva cuando necesitás re-ejecutar un deploy sin hacer un commit vacío.
+    </p>
+  </div>
+</section>
+
+<!-- ================= 04 ================= -->
+<section id="s4">
+  <span class="sec-num">04 · Dónde se ejecuta</span>
+  <h2>Runners: hosted vs self-hosted</h2>
+  <p>
+    Un runner es la máquina que ejecuta tus jobs. Hay dos mundos, y la elección
+    depende de una pregunta concreta: <strong>¿tus servidores son alcanzables desde internet?</strong>
+  </p>
+  <ul>
+    <li>
+      <strong>GitHub-hosted</strong> (<code>runs-on: ubuntu-latest</code>): máquinas virtuales
+      de GitHub, limpias en cada ejecución, con Java, Maven, Git y decenas de herramientas
+      preinstaladas. Cero mantenimiento. Gratis para repos públicos; los privados tienen una
+      cuota mensual de minutos gratis y después se paga por minuto.
+    </li>
+    <li>
+      <strong>Self-hosted</strong>: una máquina <em>tuya</em> (un servidor en tu red, una VM,
+      incluso el propio servidor de deploy) donde instalás el agente de GitHub. El agente se
+      conecta <strong>saliente</strong> hacia GitHub (polling por HTTPS) y pregunta "¿hay trabajo
+      para mí?". <strong>No hace falta abrir ningún puerto de entrada</strong> en tu firewall.
+    </li>
+  </ul>
+
+  <figure>
+    <div class="svg-wrap">
+    <svg viewBox="0 0 860 290" role="img" aria-label="Comparación de red: un runner hosted necesita que el firewall permita SSH entrante desde internet; un runner self-hosted vive dentro de la red y solo hace conexiones salientes a GitHub">
+      <defs>
+        <marker id="ar3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" fill="var(--muted)"/>
+        </marker>
+        <marker id="ar3a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" fill="var(--accent)"/>
+        </marker>
+      </defs>
+      <!-- escenario A -->
+      <text class="d-txt-b" x="20" y="30">A · Runner hosted (servidor accesible por SSH)</text>
+      <rect class="d-box" x="20" y="45" width="180" height="60" rx="10"/>
+      <text class="d-txt-b" x="110" y="70" text-anchor="middle">Runner de GitHub</text>
+      <text class="d-txt-m" x="110" y="88" text-anchor="middle">ubuntu-latest · en la nube</text>
+
+      <line class="d-line" x1="200" y1="75" x2="330" y2="75" marker-end="url(#ar3)"/>
+      <text class="d-txt-m" x="265" y="65" text-anchor="middle">SSH :22 entrante</text>
+
+      <!-- firewall A -->
+      <rect x="332" y="40" width="14" height="70" fill="var(--stg)" opacity="0.55" rx="3"/>
+      <text class="d-txt-m" x="339" y="128" text-anchor="middle">firewall</text>
+
+      <rect class="d-box" x="365" y="45" width="180" height="60" rx="10"/>
+      <text class="d-txt-b" x="455" y="70" text-anchor="middle">Tu servidor</text>
+      <text class="d-txt-m" x="455" y="88" text-anchor="middle">tu aplicación</text>
+      <text class="d-txt-m" x="580" y="70">requiere IP pública o VPN,</text>
+      <text class="d-txt-m" x="580" y="86">y restringir el :22 (allowlist)</text>
+
+      <!-- escenario B -->
+      <text class="d-txt-b" x="20" y="180">B · Runner self-hosted (servidores privados)</text>
+      <rect class="d-box" x="20" y="195" width="180" height="60" rx="10"/>
+      <text class="d-txt-b" x="110" y="220" text-anchor="middle">GitHub.com</text>
+      <text class="d-txt-m" x="110" y="238" text-anchor="middle">cola de jobs</text>
+
+      <line class="d-line-a" x1="365" y1="225" x2="203" y2="225" marker-end="url(#ar3a)"/>
+      <text class="d-txt-m" x="284" y="215" text-anchor="middle">HTTPS saliente (polling)</text>
+
+      <!-- red privada -->
+      <rect x="355" y="185" width="480" height="90" rx="12" fill="none" stroke="var(--prod)" stroke-width="1.4" stroke-dasharray="6 4"/>
+      <text class="d-txt-m" x="370" y="203" fill="var(--prod)">tu red privada — nada entra desde afuera</text>
+
+      <rect class="d-box" x="375" y="212" width="185" height="52" rx="10"/>
+      <text class="d-txt-b" x="467" y="234" text-anchor="middle">Runner self-hosted</text>
+      <text class="d-txt-m" x="467" y="250" text-anchor="middle">agente instalado por vos</text>
+
+      <line class="d-line" x1="560" y1="238" x2="640" y2="238" marker-end="url(#ar3)"/>
+      <text class="d-txt-m" x="600" y="228" text-anchor="middle">SSH local</text>
+
+      <rect class="d-box" x="645" y="212" width="170" height="52" rx="10"/>
+      <text class="d-txt-b" x="730" y="234" text-anchor="middle">Tu servidor</text>
+      <text class="d-txt-m" x="730" y="250" text-anchor="middle">tu aplicación</text>
+    </svg>
+    </div>
+    <figcaption>El agente self-hosted solo hace conexiones salientes: ideal cuando tus servidores no tienen IP pública.</figcaption>
+  </figure>
+
+  <div class="tbl-wrap"><table>
+    <tr><th></th><th>GitHub-hosted</th><th>Self-hosted</th></tr>
+    <tr><td>Mantenimiento</td><td>Ninguno</td><td>Vos: OS, actualizaciones, disco, seguridad</td></tr>
+    <tr><td>Acceso a red privada</td><td>No (está en la nube de GitHub)</td><td>Sí (está adentro de tu red)</td></tr>
+    <tr><td>Costo</td><td>Minutos gratis + pago por uso (privados)</td><td>Gratis en Actions; pagás tu hardware</td></tr>
+    <tr><td>Entorno</td><td>Limpio en cada job</td><td>Persistente (¡cuidado con estado residual!)</td></tr>
+    <tr><td>Seguridad</td><td>Aislado por diseño</td><td>Nunca lo uses con repos públicos: un PR malicioso ejecutaría código en tu máquina</td></tr>
+  </table></div>
+
+  <div class="codeblock">
+    <pre><code class="lang-yaml">jobs:
+  deploy:
+    # hosted:
+    runs-on: ubuntu-latest
+    # self-hosted (después de registrar el agente en Settings → Actions → Runners):
+    # runs-on: [self-hosted, linux, deploy]   # etiquetas que le pusiste al runner</code></pre>
+  </div>
+
+  <div class="callout">
+    <span class="tag">Recomendación para tu caso</span>
+    <p>
+      Estrategia mixta y muy común: <strong>build y tests en runners hosted</strong>
+      (aprovechás las máquinas limpias y gratuitas) y <strong>solo el job de deploy en un
+      runner self-hosted</strong> dentro de tu red, si tus servidores no son públicos.
+      Si tus servidores sí aceptan SSH desde internet (con allowlist de IPs), podés hacer
+      todo con runners hosted y te ahorrás mantener el agente.
+    </p>
+  </div>
+</section>
+
+<!-- ================= 05 ================= -->
+<section id="s5">
+  <span class="sec-num">05 · Build</span>
+  <h2>Compilar el proyecto y generar el artefacto</h2>
+  <p>
+    Dentro del runner tenés una máquina Linux normal: el build es exactamente el mismo
+    comando que corrés en tu PC. El patrón es siempre igual — clonar el repo, instalar
+    el runtime del lenguaje con su action <code>setup-*</code> (con cache de dependencias),
+    y correr tu comando de build. Lo único que cambia entre stacks es <em>qué</em> se
+    empaqueta: un <code>.war</code>, un bundle comprimido, o un binario.
+  </p>
+
+  <div data-tech-variant="java">
+    <div class="codeblock">
+      <div class="code-title">Job de build — Java con Maven</div>
+      <pre><code class="lang-yaml">jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clonar el repo
+        uses: actions/checkout@v5
+
+      - name: Instalar JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin      # Eclipse Temurin: la distribución OpenJDK más usada
+          java-version: '21'         # poné la versión que use tu proyecto (8, 11, 17, 21…)
+          cache: maven               # cachea ~/.m2 → builds mucho más rápidos
+
+      - name: Compilar y empaquetar el WAR
+        run: mvn -B -ntp package     # -B: sin colores/prompts (batch), -ntp: sin logs de descarga
+        # el .war queda en target/miapp.war (según tu pom.xml)</code></pre>
+    </div>
+    <p>Con Gradle es igual de directo:</p>
+    <div class="codeblock">
+      <div class="code-title">Variante con Gradle</div>
+      <pre><code class="lang-yaml">      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: Empaquetar el WAR
+        run: ./gradlew war --no-daemon    # requiere el plugin 'war' en build.gradle
+        # el .war queda en build/libs/</code></pre>
+    </div>
+    <details class="more">
+      <summary>¿Y si mi proyecto necesita una versión exacta de Maven?</summary>
+      <div class="inner">
+        <p>
+          Usá <strong>Maven Wrapper</strong> (<code>./mvnw</code>): commiteás el wrapper al
+          repo y el workflow lo usa igual que en tu máquina (<code>./mvnw -B package</code>).
+          Así todo el equipo y el CI usan exactamente la misma versión de Maven.
+        </p>
+      </div>
+    </details>
+  </div>
+
+  <div data-tech-variant="node" hidden>
+    <div class="codeblock">
+      <div class="code-title">Job de build — Node.js</div>
+      <pre><code class="lang-yaml">jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clonar el repo
+        uses: actions/checkout@v5
+
+      - name: Instalar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'         # la versión que use tu proyecto (o node-version-file: .nvmrc)
+          cache: npm                 # cachea las dependencias descargadas
+
+      - name: Instalar dependencias
+        run: npm ci                  # como npm install, pero exacto al package-lock (reproducible)
+
+      - name: Build de producción
+        run: npm run build           # si tu app compila (TypeScript, bundler); si no, omitilo
+
+      - name: Empaquetar
+        run: tar czf app.tar.gz dist package.json package-lock.json
+        # un solo archivo comprimido con lo necesario para correr en el server
+        # (las dependencias de producción se instalan en el server con npm ci --omit=dev)</code></pre>
+    </div>
+  </div>
+
+  <div data-tech-variant="python" hidden>
+    <div class="codeblock">
+      <div class="code-title">Job de build — Python</div>
+      <pre><code class="lang-yaml">jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clonar el repo
+        uses: actions/checkout@v5
+
+      - name: Instalar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'     # la versión que use tu proyecto
+          cache: pip                 # cachea los paquetes descargados
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Empaquetar
+        run: tar czf app.tar.gz app/ requirements.txt
+        # ajustá "app/" a la estructura de tu proyecto; el venv se crea en el server
+        # (Python no compila: el "artefacto" es el código + la lista exacta de dependencias)</code></pre>
+    </div>
+  </div>
+
+  <div data-tech-variant="dotnet" hidden>
+    <div class="codeblock">
+      <div class="code-title">Job de build — .NET</div>
+      <pre><code class="lang-yaml">jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clonar el repo
+        uses: actions/checkout@v5
+
+      - name: Instalar .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'    # la versión de tu proyecto (8 es LTS)
+
+      - name: Publicar (compilar para producción)
+        run: dotnet publish -c Release -o publish
+        # "publish" deja en ./publish/ todo lo necesario para ejecutar la app
+
+      - name: Empaquetar
+        run: tar czf app.tar.gz -C publish .</code></pre>
+    </div>
+  </div>
+
+  <div data-tech-variant="go" hidden>
+    <div class="codeblock">
+      <div class="code-title">Job de build — Go</div>
+      <pre><code class="lang-yaml">jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clonar el repo
+        uses: actions/checkout@v5
+
+      - name: Instalar Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'         # la versión de tu go.mod
+          # setup-go cachea los módulos automáticamente
+
+      - name: Compilar el binario
+        run: CGO_ENABLED=0 go build -o miapp .
+        # CGO_ENABLED=0 → binario estático: corre en cualquier Linux sin dependencias
+        # el artefacto ES el binario: el caso más simple de todos</code></pre>
+    </div>
+  </div>
+
+  <div class="callout">
+    <span class="tag">Tip</span>
+    <p>
+      La opción <code>cache:</code> de las actions <code>setup-*</code> guarda las
+      dependencias descargadas entre ejecuciones. Sin cache, cada build vuelve a bajar
+      todo; con cache, un proyecto mediano puede pasar de 6 minutos a 1. Es la
+      optimización con mejor relación costo/beneficio de todo el pipeline.
+    </p>
+  </div>
+</section>
+
+<!-- ================= 06 ================= -->
+<section id="s6">
+  <span class="sec-num">06 · Pasar archivos entre jobs</span>
+  <h2>Artifacts: mover el artefacto del build al deploy</h2>
+  <p>
+    Acordate: cada job corre en un runner distinto y limpio. Si el job <code>build</code>
+    genera el artefacto y el job <code>deploy</code> intenta leerlo,
+    no lo va a encontrar — son máquinas diferentes. La solución son los
+    <strong>artifacts</strong>: un almacenamiento temporal que GitHub asocia a la
+    ejecución del workflow. Un job <em>sube</em> el archivo; otro job lo <em>baja</em>.
+  </p>
+
+  <figure>
+    <div class="svg-wrap">
+    <svg viewBox="0 0 860 200" role="img" aria-label="El job build sube el war al almacenamiento de artifacts de GitHub y el job deploy lo descarga">
+      <defs>
+        <marker id="ar4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" fill="var(--accent)"/>
+        </marker>
+      </defs>
+      <rect class="d-box" x="30" y="60" width="220" height="80" rx="10"/>
+      <text class="d-txt-b" x="140" y="88" text-anchor="middle">job: build</text>
+      <text class="d-txt-m" x="140" y="106" text-anchor="middle">runner A (efímero)</text>
+      <text class="d-txt-mono" x="140" y="126" text-anchor="middle">artefacto generado ✓</text>
+
+      <rect class="d-box d-box-accent" x="330" y="50" width="200" height="100" rx="10"/>
+      <text class="d-txt-b" x="430" y="82" text-anchor="middle">Artifact storage</text>
+      <text class="d-txt-m" x="430" y="100" text-anchor="middle">de GitHub, por ejecución</text>
+      <text class="d-txt-mono" x="430" y="122" text-anchor="middle">"app-package"</text>
+
+      <rect class="d-box" x="610" y="60" width="220" height="80" rx="10"/>
+      <text class="d-txt-b" x="720" y="88" text-anchor="middle">job: deploy</text>
+      <text class="d-txt-m" x="720" y="106" text-anchor="middle">runner B (otro, limpio)</text>
+      <text class="d-txt-mono" x="720" y="126" text-anchor="middle">dist/… ✓</text>
+
+      <line class="d-line-a" x1="250" y1="100" x2="326" y2="100" marker-end="url(#ar4)"/>
+      <text class="d-txt-m" x="288" y="90" text-anchor="middle">upload-artifact</text>
+      <line class="d-line-a" x1="530" y1="100" x2="606" y2="100" marker-end="url(#ar4)"/>
+      <text class="d-txt-m" x="568" y="90" text-anchor="middle">download-artifact</text>
+    </svg>
+    </div>
+    <figcaption>El artifact storage es el puente entre runners que no comparten disco.</figcaption>
+  </figure>
+
+  <div class="codeblock">
+    <pre><code class="lang-yaml">jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      # ... checkout, setup-java, mvn package ...
+      - name: Subir el artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-package              # nombre con el que lo vas a pedir después
+          path: target/*.war         # la ruta de TU artefacto según tu stack (sección 05)
+          retention-days: 7          # cuánto lo guarda GitHub (default: 90 días)
+          if-no-files-found: error   # si el build no generó el artefacto, fallá acá y no en el deploy
+
+  deploy:
+    needs: build                     # espera a que build termine OK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar el artefacto
+        uses: actions/download-artifact@v4
+        with:
+          name: app-package
+          path: dist                 # lo deja en ./dist/</code></pre>
+  </div>
+
+  <div class="callout">
+    <span class="tag">Por qué separar build y deploy en jobs distintos</span>
+    <p>
+      Podrías hacer todo en un job, pero separarlos te da tres cosas:
+      (1) <strong>el mismo artefacto exacto</strong> se despliega a todos los ambientes —
+      no recompilás para prod, con el riesgo de que salga distinto;
+      (2) podés <strong>re-ejecutar solo el deploy</strong> si falló la conexión al servidor,
+      sin recompilar; y (3) el deploy puede correr en <strong>otro runner</strong>
+      (por ejemplo, tu self-hosted dentro de la red privada).
+    </p>
+  </div>
+</section>
+
+<!-- ================= 07 ================= -->
+<section id="s7">
+  <span class="sec-num">07 · Ambientes</span>
+  <h2>GitHub Environments: dev, staging y producción con reglas</h2>
+  <p>
+    Un <strong>Environment</strong> es un objeto de GitHub (Settings → Environments)
+    que representa un destino de despliegue. Cuando un job declara
+    <code>environment: produccion</code>, pasan tres cosas:
+  </p>
+  <ol>
+    <li>El job puede leer los <strong>secrets y variables propios de ese environment</strong>
+      (el host de prod, la clave SSH de prod) — sección <a href="#s8">08</a>.</li>
+    <li>Se aplican las <strong>protection rules</strong> del environment: la más importante,
+      <em>required reviewers</em>, pausa el job hasta que una persona autorizada apruebe
+      desde la UI. Ahí está tu "botón" de entrega continua.</li>
+    <li>GitHub registra un <strong>historial de deployments</strong>: qué commit está en
+      cada ambiente, cuándo y quién lo aprobó.</li>
+  </ol>
+
+  <div class="codeblock">
+    <pre><code class="lang-yaml">jobs:
+  deploy-prod:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: produccion               # debe existir en Settings → Environments
+      url: https://miapp.empresa.com # link "View deployment" en la UI
+    steps:
+      # este job QUEDA EN PAUSA hasta que un reviewer apruebe,
+      # si el environment tiene "Required reviewers" configurado
+      - name: Desplegar
+        run: echo "desplegando a prod..."</code></pre>
+  </div>
+
+  <p>Protection rules disponibles por environment:</p>
+  <ul>
+    <li><strong>Required reviewers</strong>: hasta 6 personas/equipos; basta que apruebe una.</li>
+    <li><strong>Wait timer</strong>: espera fija (ej. 15 min) antes de desplegar — ventana para abortar.</li>
+    <li><strong>Deployment branches</strong>: restringe qué ramas pueden desplegar a este
+      environment (ej. solo <code>main</code> puede desplegar a <code>produccion</code>).
+      Esta regla es tu segunda línea de defensa además del <code>if:</code> del workflow.</li>
+  </ul>
+
+  <div class="callout warn">
+    <span class="tag">Ojo con el plan de GitHub</span>
+    <p>
+      En <strong>repos privados</strong>, las protection rules de environments (reviewers, wait
+      timer, branch restrictions) requieren plan <strong>GitHub Team o Enterprise</strong>.
+      En repos <strong>públicos</strong> están disponibles gratis. Si tu repo es privado con plan
+      Free, igual podés usar environments para separar secrets por ambiente (eso sí funciona);
+      la aprobación manual la simulás con <code>workflow_dispatch</code> para prod.
+    </p>
+  </div>
+</section>
+
+<!-- ================= 08 ================= -->
+<section id="s8">
+  <span class="sec-num">08 · Configuración sensible</span>
+  <h2>Secrets y variables</h2>
+  <p>
+    Nunca escribas contraseñas, claves SSH o tokens en el YAML: el repo los guardaría en
+    texto plano para siempre (el historial de git no perdona). GitHub ofrece dos
+    almacenes:
+  </p>
+  <ul>
+    <li><strong>Secrets</strong> (<code>${{ secrets.X }}</code>): cifrados, nunca visibles
+      después de guardarlos, y <strong>enmascarados en los logs</strong> (si un comando los
+      imprime, salen como <code>***</code>). Para claves SSH, passwords, tokens.</li>
+    <li><strong>Variables</strong> (<code>${{ vars.X }}</code>): configuración no sensible,
+      visible en la UI. Para hostnames, rutas, nombres de app, flags.</li>
+  </ul>
+  <p>Y ambos existen en <strong>tres niveles</strong>, del más general al más específico:</p>
+
+  <div class="tbl-wrap"><table>
+    <tr><th>Nivel</th><th>Dónde se define</th><th>Quién lo ve</th><th>Típico para…</th></tr>
+    <tr><td>Organización</td><td>Settings de la org</td><td>Todos los repos (o una lista)</td><td>Token del Slack corporativo, credenciales de registry compartido</td></tr>
+    <tr><td>Repositorio</td><td>Settings → Secrets and variables → Actions</td><td>Todos los workflows del repo</td><td>Cosas comunes a todos los ambientes</td></tr>
+    <tr><td>Environment</td><td>Settings → Environments → (nombre)</td><td>Solo jobs con <code>environment:</code> ese nombre</td><td><strong>Host, usuario y clave SSH de cada ambiente</strong></td></tr>
+  </table></div>
+
+  <p>
+    Si el mismo nombre existe en varios niveles, gana el más específico:
+    environment &gt; repo &gt; organización. Esto habilita el patrón central de este curso:
+    definís <code>DEPLOY_HOST</code>, <code>DEPLOY_USER</code> y <code>DEPLOY_SSH_KEY</code>
+    <strong>en cada environment con valores distintos</strong>, y el YAML del deploy es
+    <strong>uno solo</strong> — el valor correcto se resuelve según a qué environment
+    apunte el job.
+  </p>
+
+  <div class="codeblock">
+    <pre><code class="lang-yaml">  deploy:
+    environment: ${{ needs.mapear.outputs.env_name }}   # dev | staging | produccion
+    steps:
+      - name: Copiar al servidor
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}      # ← resuelve al host DEL ENVIRONMENT activo
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}    # clave privada SSH (el server tiene la pública)
+          source: dist/*
+          target: /opt/deploys/incoming/</code></pre>
+  </div>
+
+  <div class="callout danger">
+    <span class="tag">Nunca</span>
+    <p>
+      Nunca hagas <code>echo ${{ secrets.X }}</code> "para debuggear", ni lo pases a
+      herramientas que lo puedan loguear. El enmascarado ayuda pero no es infalible
+      (por ejemplo, si el secret se transforma — base64, urlencode — ya no se enmascara).
+    </p>
+  </div>
+</section>
+
+<!-- ================= 09 ================= -->
+<section id="s9">
+  <span class="sec-num">09 · El deploy en sí</span>
+  <h2>Estrategias para llevar el .war al servidor</h2>
+  <p>
+    El pipeline ya tiene el <code>.war</code> descargado en el runner. Ahora hay que
+    ponerlo en el servidor y activarlo. Las cuatro estrategias habituales:
+  </p>
+
+  <h3>A · SCP + SSH (la recomendada para empezar)</h3>
+  <p>
+    Copiás el archivo con SCP y ejecutás por SSH un script que lo activa (ubicarlo donde
+    corresponda, reiniciar el servicio, verificar salud). Las actions de la
+    comunidad más validadas para esto son
+    <a href="https://github.com/appleboy/scp-action" target="_blank" rel="noopener">appleboy/scp-action</a> y
+    <a href="https://github.com/appleboy/ssh-action" target="_blank" rel="noopener">appleboy/ssh-action</a>
+    (miles de estrellas, mantenimiento activo, v1 estable).
+  </p>
+  <div class="codeblock">
+    <pre><code class="lang-yaml">      - name: Copiar el WAR
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          source: dist/*
+          target: /opt/deploys/incoming/
+          strip_components: 1            # quita el prefijo "dist/" al copiar
+
+      - name: Activar la nueva versión
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            # versión mínima — el script real, con health check y rollback, está en la sección 12
+            sudo systemctl restart miapp   # Java: copiar el .war a webapps y reiniciar tomcat</code></pre>
+  </div>
+
+  <h3>B · El atajo propio de tu runtime</h3>
+  <p>
+    Además del camino genérico por SSH, cada runtime tiene su mecanismo de deploy
+    "en caliente" o su matiz particular:
+  </p>
+
+  <div data-tech-variant="java">
+    <p>
+      <strong>Tomcat Manager</strong>: Tomcat trae una app de administración
+      (<code>manager</code>) con una API de texto — un <code>curl</code> con el
+      <code>.war</code> lo despliega sin reiniciar el servidor:
+    </p>
+    <div class="codeblock">
+      <pre><code class="lang-yaml">      - name: Deploy via Tomcat Manager
+        run: |
+          curl --fail -u "${{ secrets.TOMCAT_USER }}:${{ secrets.TOMCAT_PASS }}" \
+            -T dist/miapp.war \
+            "https://${{ secrets.DEPLOY_HOST }}:8443/manager/text/deploy?path=/miapp&update=true"</code></pre>
+    </div>
+    <p>
+      Contras: exponés una app de administración (restringila por IP y usá HTTPS), y los
+      redeploys repetidos en caliente pueden dejar fugas de memoria del classloader.
+    </p>
+  </div>
+
+  <div data-tech-variant="node" hidden>
+    <p>
+      <strong>PM2</strong>: el process manager más usado para Node en producción. Si tu
+      app corre bajo PM2 en lugar de systemd, el paso de activación por SSH termina en
+      <code>pm2 reload miapp</code> — recarga con <em>cero downtime</em> (levanta el
+      proceso nuevo antes de bajar el viejo). PM2 además reinicia la app si se cae y
+      rota los logs. Es el reemplazo natural de systemd para este stack.
+    </p>
+  </div>
+
+  <div data-tech-variant="python" hidden>
+    <p>
+      <strong>Gunicorn con recarga graceful</strong>: si servís la app con Gunicorn
+      (el servidor WSGI estándar), en lugar de <code>systemctl restart</code> podés
+      mandarle <code>kill -HUP</code> al proceso maestro: recarga los workers uno a uno
+      <em>sin cortar conexiones en curso</em>. Para uWSGI existe el equivalente
+      (<code>--touch-reload</code>).
+    </p>
+  </div>
+
+  <div data-tech-variant="dotnet" hidden>
+    <p>
+      <strong>Según el sistema operativo del servidor</strong>: en Linux, Kestrel detrás
+      de un reverse proxy (nginx) + systemd es el camino estándar y lo que usa este curso.
+      Si tu servidor es <strong>Windows con IIS</strong>, la herramienta clásica es
+      <strong>Web Deploy (msdeploy)</strong> o PowerShell remoto (WinRM) en lugar de
+      SSH/SCP — el resto del pipeline no cambia.
+    </p>
+  </div>
+
+  <div data-tech-variant="go" hidden>
+    <p>
+      <strong>Go es el caso más simple</strong>: el binario es autocontenido, no hay
+      runtime ni dependencias que administrar en el servidor. El patrón
+      symlink + <code>systemctl restart</code> es todo lo que necesitás; no existe (ni
+      hace falta) un mecanismo de deploy en caliente estándar. Si querés cero downtime,
+      el camino es un reverse proxy con dos instancias (blue/green).
+    </p>
+  </div>
+
+  <h3>C · Ansible (cuando hay varios servidores)</h3>
+  <p>
+    Ansible describe el estado deseado del servidor en "playbooks" YAML y lo aplica por SSH.
+    Brilla cuando tenés que desplegar a <strong>varios servidores a la vez</strong>, con
+    lógica de orquestación (de a uno, health check entre medio, rollback coordinado).
+  </p>
+
+  <h3>D · Mención: contenedores</h3>
+  <p>
+    El camino moderno es empaquetar la app como imagen Docker (runtime + app adentro) y
+    desplegar la imagen. Te lo dejo señalado como evolución futura: los conceptos de este
+    curso (pipeline, environments, secrets, aprobaciones) se mantienen idénticos.
+  </p>
+
+  <div class="tbl-wrap"><table>
+    <tr><th>Estrategia</th><th>Pros</th><th>Contras</th></tr>
+    <tr><td>SCP + SSH</td>
+      <td>Simple, transparente, sin nada extra en el server, control total del script</td>
+      <td>El script de activación lo escribís vos (incluido el rollback); requiere acceso SSH desde el runner</td></tr>
+    <tr><td>Atajo del runtime</td>
+      <td>Usa el mecanismo nativo de tu stack (Tomcat Manager, PM2, gunicorn…): recarga rápida, a veces sin downtime</td>
+      <td>Específico de cada runtime; algunos exponen superficies de administración que hay que proteger</td></tr>
+    <tr><td>Ansible</td>
+      <td>Multi-servidor, idempotente, orquestación seria, reusable fuera de Actions</td>
+      <td>Otra herramienta que aprender; overkill para un solo servidor</td></tr>
+    <tr><td>Docker</td>
+      <td>Reproducible, portable, rollback = volver a la imagen anterior</td>
+      <td>Requiere adoptar contenedores en el servidor; cambio de plataforma</td></tr>
+  </table></div>
+
+  <div class="callout">
+    <span class="tag">Recomendación</span>
+    <p>
+      Con un servidor por ambiente: <strong>SCP + SSH con un script de activación versionado</strong>
+      (lo armamos completo en la sección <a href="#s12">12</a> y en el
+      <a href="#final">workflow final</a>). Cuando pases de ~3 servidores o necesites
+      orquestación, migrá el paso de activación a Ansible sin tocar el resto del pipeline.
+    </p>
+  </div>
+</section>
+
+<!-- ================= 10 ================= -->
+<section id="s10">
+  <span class="sec-num">10 · Enrutamiento</span>
+  <h2>Mapear ramas a ambientes</h2>
+  <p>
+    La convención más usada (GitFlow simplificado) asigna cada rama a un destino:
+  </p>
+
+  <figure>
+    <div class="svg-wrap">
+    <svg viewBox="0 0 860 260" role="img" aria-label="Mapa de ramas a ambientes: develop despliega a dev, release/* a staging, y main a producción con aprobación manual">
+      <defs>
+        <marker id="ar5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" fill="var(--muted)"/>
+        </marker>
+      </defs>
+      <!-- branches -->
+      <rect class="d-box" x="30" y="30" width="170" height="48" rx="8"/>
+      <text class="d-txt-mono" x="115" y="58" text-anchor="middle">develop</text>
+      <rect class="d-box" x="30" y="106" width="170" height="48" rx="8"/>
+      <text class="d-txt-mono" x="115" y="134" text-anchor="middle">release/1.4</text>
+      <rect class="d-box" x="30" y="182" width="170" height="48" rx="8"/>
+      <text class="d-txt-mono" x="115" y="210" text-anchor="middle">main</text>
+
+      <!-- arrows -->
+      <line class="d-line" x1="200" y1="54" x2="330" y2="54" marker-end="url(#ar5)"/>
+      <text class="d-txt-m" x="265" y="44" text-anchor="middle">push → auto</text>
+      <line class="d-line" x1="200" y1="130" x2="330" y2="130" marker-end="url(#ar5)"/>
+      <text class="d-txt-m" x="265" y="120" text-anchor="middle">push → auto</text>
+      <line class="d-line" x1="200" y1="206" x2="330" y2="206" marker-end="url(#ar5)"/>
+      <text class="d-txt-m" x="265" y="196" text-anchor="middle">push → aprobación ✋</text>
+
+      <!-- environments -->
+      <rect class="d-box d-dev" x="335" y="30" width="190" height="48" rx="8"/>
+      <text class="d-txt-b" x="430" y="50" text-anchor="middle">environment: dev</text>
+      <text class="d-txt-m" x="430" y="66" text-anchor="middle">deploy continuo</text>
+      <rect class="d-box d-stg" x="335" y="106" width="190" height="48" rx="8"/>
+      <text class="d-txt-b" x="430" y="126" text-anchor="middle">environment: staging</text>
+      <text class="d-txt-m" x="430" y="142" text-anchor="middle">QA / pruebas de release</text>
+      <rect class="d-box d-prod" x="335" y="182" width="190" height="48" rx="8"/>
+      <text class="d-txt-b" x="430" y="202" text-anchor="middle">environment: produccion</text>
+      <text class="d-txt-m" x="430" y="218" text-anchor="middle">required reviewers</text>
+
+      <!-- servers -->
+      <line class="d-line" x1="525" y1="54" x2="620" y2="54" marker-end="url(#ar5)"/>
+      <line class="d-line" x1="525" y1="130" x2="620" y2="130" marker-end="url(#ar5)"/>
+      <line class="d-line" x1="525" y1="206" x2="620" y2="206" marker-end="url(#ar5)"/>
+      <rect class="d-box" x="625" y="30" width="205" height="48" rx="8"/>
+      <text class="d-txt-mono" x="727" y="50" text-anchor="middle">dev.interno:22</text>
+      <text class="d-txt-m" x="727" y="66" text-anchor="middle">secrets del env dev</text>
+      <rect class="d-box" x="625" y="106" width="205" height="48" rx="8"/>
+      <text class="d-txt-mono" x="727" y="126" text-anchor="middle">staging.interno:22</text>
+      <text class="d-txt-m" x="727" y="142" text-anchor="middle">secrets del env staging</text>
+      <rect class="d-box" x="625" y="182" width="205" height="48" rx="8"/>
+      <text class="d-txt-mono" x="727" y="202" text-anchor="middle">prod.empresa.com:22</text>
+      <text class="d-txt-m" x="727" y="218" text-anchor="middle">secrets del env produccion</text>
+    </svg>
+    </div>
+    <figcaption>Cada rama enruta a un environment; cada environment aporta sus propios secrets y reglas.</figcaption>
+  </figure>
+
+  <p>
+    En el workflow, el mapeo se resuelve en un job chiquito que mira la rama y emite un
+    <strong>output</strong> con el nombre del environment. Los jobs siguientes lo consumen:
+  </p>
+  <div class="codeblock">
+    <pre><code class="lang-yaml">jobs:
+  mapear:
+    runs-on: ubuntu-latest
+    outputs:
+      env_name: ${{ steps.map.outputs.env_name }}
+    steps:
+      - id: map
+        run: |
+          case "$GITHUB_REF_NAME" in                # nombre de la rama del push
+            main)       echo "env_name=produccion" >> "$GITHUB_OUTPUT" ;;
+            release/*)  echo "env_name=staging"    >> "$GITHUB_OUTPUT" ;;
+            *)          echo "env_name=dev"        >> "$GITHUB_OUTPUT" ;;
+          esac
+
+  deploy:
+    needs: [build, mapear]
+    environment: ${{ needs.mapear.outputs.env_name }}   # ← un solo job para los 3 ambientes
+    runs-on: ubuntu-latest
+    steps: [...]</code></pre>
+  </div>
+
+  <div class="callout">
+    <span class="tag">Alternativa más simple</span>
+    <p>
+      Si preferís evitar el job de mapeo, otra opción válida es <strong>trunk-based</strong>:
+      todo push a <code>main</code> despliega a dev automáticamente, y los deploys a staging
+      y producción se disparan con tags (<code>v1.4.0</code>) o con <code>workflow_dispatch</code>.
+      Menos ramas para mantener; muy usada en equipos chicos.
+    </p>
+  </div>
+</section>
+
+<!-- ================= 11 ================= -->
+<section id="s11">
+  <span class="sec-num">11 · Calidad</span>
+  <h2>Tests y quality gates: nada roto llega al deploy</h2>
+  <p>
+    Un <strong>quality gate</strong> es una condición que, si no se cumple, corta el
+    pipeline. En Actions esto es natural: <strong>si un step falla (exit code ≠ 0),
+    el job falla, y todo job con <code>needs:</code> hacia él no se ejecuta</strong>.
+    Poniendo los tests <em>antes</em> del deploy en la cadena, ya tenés el gate.
+  </p>
+  <div data-tech-variant="java">
+  <div class="codeblock">
+    <pre><code class="lang-yaml">      - name: Tests unitarios y de integración
+        run: mvn -B -ntp verify
+        # 'verify' corre: test (unitarios, Surefire) + integration-test (Failsafe)
+        # si UN test falla → este step falla → el job falla → NO hay deploy
+
+      - name: Publicar reporte de tests (aunque hayan fallado)
+        if: always()                       # se ejecuta incluso si el step anterior falló
+        uses: actions/upload-artifact@v4
+        with:
+          name: reportes-tests
+          path: target/surefire-reports/</code></pre>
+  </div>
+  </div>
+
+  <div data-tech-variant="node" hidden>
+  <div class="codeblock">
+    <pre><code class="lang-yaml">      - name: Tests
+        run: npm test                      # Jest, Vitest, Mocha… lo que tengas en package.json
+        # si UN test falla → este step falla → el job falla → NO hay deploy
+
+      - name: Publicar reporte de tests (aunque hayan fallado)
+        if: always()                       # se ejecuta incluso si el step anterior falló
+        uses: actions/upload-artifact@v4
+        with:
+          name: reportes-tests
+          path: coverage/                  # o donde tu runner deje los reportes</code></pre>
+  </div>
+  </div>
+
+  <div data-tech-variant="python" hidden>
+  <div class="codeblock">
+    <pre><code class="lang-yaml">      - name: Tests
+        run: pytest --junitxml=reporte.xml
+        # si UN test falla → este step falla → el job falla → NO hay deploy
+
+      - name: Publicar reporte de tests (aunque hayan fallado)
+        if: always()                       # se ejecuta incluso si el step anterior falló
+        uses: actions/upload-artifact@v4
+        with:
+          name: reportes-tests
+          path: reporte.xml</code></pre>
+  </div>
+  </div>
+
+  <div data-tech-variant="dotnet" hidden>
+  <div class="codeblock">
+    <pre><code class="lang-yaml">      - name: Tests
+        run: dotnet test --logger trx --results-directory TestResults
+        # si UN test falla → este step falla → el job falla → NO hay deploy
+
+      - name: Publicar reporte de tests (aunque hayan fallado)
+        if: always()                       # se ejecuta incluso si el step anterior falló
+        uses: actions/upload-artifact@v4
+        with:
+          name: reportes-tests
+          path: TestResults/</code></pre>
+  </div>
+  </div>
+
+  <div data-tech-variant="go" hidden>
+  <div class="codeblock">
+    <pre><code class="lang-yaml">      - name: Tests
+        run: go test ./... -v -coverprofile=coverage.out
+        # ./... = todos los paquetes del módulo
+        # si UN test falla → este step falla → el job falla → NO hay deploy
+
+      - name: Publicar cobertura (aunque hayan fallado)
+        if: always()                       # se ejecuta incluso si el step anterior falló
+        uses: actions/upload-artifact@v4
+        with:
+          name: reportes-tests
+          path: coverage.out</code></pre>
+  </div>
+  </div>
+
+  <p>Gates adicionales que valen la pena, en orden de adopción:</p>
+  <ul>
+    <li><strong>Análisis estático</strong>: un linter como paso del build — SpotBugs/Checkstyle
+      (Java), ESLint (Node), Ruff (Python), analizadores de Roslyn (.NET), golangci-lint (Go) —
+      atrapa bugs clásicos sin escribir tests.</li>
+    <li><strong>Cobertura mínima</strong>: JaCoCo (Java), Istanbul (Node), coverage.py,
+      Coverlet (.NET) o <code>go test -cover</code> — definí un umbral y hacé que el build
+      falle si la cobertura baja de ahí.</li>
+    <li><strong>SonarQube / SonarCloud</strong>: la plataforma de quality gates más completa
+      (bugs, vulnerabilidades, code smells, cobertura). SonarCloud es gratis para repos
+      públicos y tiene action oficial.</li>
+    <li><strong>Branch protection</strong>: en GitHub, marcá el job de build/tests como
+      <em>required status check</em> para <code>main</code> — nadie puede mergear un PR
+      con el pipeline en rojo, ni siquiera con permisos de admin (sección <a href="#s16">16</a>).</li>
+  </ul>
+</section>
+
+<!-- ================= 12 ================= -->
+<section id="s12">
+  <span class="sec-num">12 · Cuando sale mal</span>
+  <h2>Rollback: volver atrás rápido</h2>
+  <p>
+    Un deploy puede fallar de dos maneras: <strong>el pipeline falla</strong> (SCP no conecta,
+    el servicio no arranca) o —peor— <strong>el pipeline termina verde pero la app está rota</strong>.
+    Para las dos necesitás la misma base: <strong>conservar las versiones anteriores en el
+    servidor</strong> y tener un camino probado para reactivarlas.
+  </p>
+  <p>El patrón estándar: directorio de releases + verificación de salud + vuelta atrás automática.</p>
+
+  <div data-tech-variant="java">
+  <div class="codeblock">
+    <div class="code-title">Script de activación — Java/Tomcat (corre por SSH en el servidor)</div>
+    <pre><code class="lang-bash">#!/usr/bin/env bash
+set -euo pipefail                     # cualquier error corta el script
+
+RELEASES=/opt/deploys/releases
+WEBAPPS=/opt/tomcat/webapps
+TS=$(date +%Y%m%d-%H%M%S)
+
+# 1. Archivar la nueva versión con timestamp (queda el historial)
+mv /opt/deploys/incoming/miapp.war "$RELEASES/miapp-$TS.war"
+
+# 2. Guardar referencia a la versión actualmente activa (para poder volver)
+CURRENT=$(readlink -f "$RELEASES/current.war" || true)
+
+# 3. Activar la nueva
+ln -sfn "$RELEASES/miapp-$TS.war" "$RELEASES/current.war"
+cp -f "$RELEASES/current.war" "$WEBAPPS/miapp.war"
+sudo systemctl restart tomcat
+
+# 4. Health check: esperar hasta 60s a que la app responda
+for i in $(seq 1 12); do
+  sleep 5
+  if curl -sf http://localhost:8080/miapp/health > /dev/null; then
+    echo "✓ Deploy OK: miapp-$TS.war"
+    # borrar releases viejos, conservando los últimos 5
+    ls -t "$RELEASES"/miapp-*.war | tail -n +6 | xargs -r rm -f
+    exit 0
+  fi
+done
+
+# 5. La app no levantó → ROLLBACK automático a la versión anterior
+echo "✗ Health check falló. Rollback a: $CURRENT"
+if [ -n "$CURRENT" ] && [ -f "$CURRENT" ]; then
+  ln -sfn "$CURRENT" "$RELEASES/current.war"
+  cp -f "$CURRENT" "$WEBAPPS/miapp.war"
+  sudo systemctl restart tomcat
+fi
+exit 1                                # el step falla → el pipeline queda rojo → notificación</code></pre>
+  </div>
+  </div>
+
+  <div data-tech-variant="node" hidden>
+  <div class="codeblock">
+    <div class="code-title">Script de activación — Node.js + systemd (corre por SSH en el servidor)</div>
+    <pre><code class="lang-bash">#!/usr/bin/env bash
+set -euo pipefail                     # cualquier error corta el script
+
+RELEASES=/opt/deploys/releases
+TS=$(date +%Y%m%d-%H%M%S)
+
+# 1. Desempaquetar la nueva versión en su propio directorio (queda el historial)
+mkdir -p "$RELEASES/$TS"
+tar xzf /opt/deploys/incoming/app.tar.gz -C "$RELEASES/$TS"
+rm -f /opt/deploys/incoming/app.tar.gz
+
+# 2. Instalar SOLO dependencias de producción, dentro del release
+cd "$RELEASES/$TS" && npm ci --omit=dev
+
+# 3. Guardar referencia a la versión activa y activar la nueva (symlink)
+CURRENT=$(readlink -f "$RELEASES/current" || true)
+ln -sfn "$RELEASES/$TS" "$RELEASES/current"
+sudo systemctl restart miapp          # el servicio ejecuta node desde /opt/deploys/releases/current
+
+# 4. Health check: esperar hasta 60s a que la app responda
+for i in $(seq 1 12); do
+  sleep 5
+  if curl -sf http://localhost:3000/health > /dev/null; then
+    echo "✓ Deploy OK: $TS"
+    # borrar releases viejos, conservando los últimos 5
+    ls -dt "$RELEASES"/20* | tail -n +6 | xargs -r rm -rf
+    exit 0
+  fi
+done
+
+# 5. La app no levantó → ROLLBACK automático a la versión anterior
+echo "✗ Health check falló. Rollback a: $CURRENT"
+if [ -n "$CURRENT" ] && [ -d "$CURRENT" ]; then
+  ln -sfn "$CURRENT" "$RELEASES/current"
+  sudo systemctl restart miapp
+fi
+exit 1                                # el step falla → el pipeline queda rojo → notificación</code></pre>
+  </div>
+  </div>
+
+  <div data-tech-variant="python" hidden>
+  <div class="codeblock">
+    <div class="code-title">Script de activación — Python + gunicorn/systemd (corre por SSH en el servidor)</div>
+    <pre><code class="lang-bash">#!/usr/bin/env bash
+set -euo pipefail                     # cualquier error corta el script
+
+RELEASES=/opt/deploys/releases
+TS=$(date +%Y%m%d-%H%M%S)
+
+# 1. Desempaquetar la nueva versión en su propio directorio (queda el historial)
+mkdir -p "$RELEASES/$TS"
+tar xzf /opt/deploys/incoming/app.tar.gz -C "$RELEASES/$TS"
+rm -f /opt/deploys/incoming/app.tar.gz
+
+# 2. Crear el entorno virtual del release e instalar dependencias exactas
+cd "$RELEASES/$TS"
+python3 -m venv .venv
+.venv/bin/pip install --quiet -r requirements.txt
+
+# 3. Guardar referencia a la versión activa y activar la nueva (symlink)
+CURRENT=$(readlink -f "$RELEASES/current" || true)
+ln -sfn "$RELEASES/$TS" "$RELEASES/current"
+sudo systemctl restart miapp          # el servicio ejecuta gunicorn desde .../current/.venv
+
+# 4. Health check: esperar hasta 60s a que la app responda
+for i in $(seq 1 12); do
+  sleep 5
+  if curl -sf http://localhost:8000/health > /dev/null; then
+    echo "✓ Deploy OK: $TS"
+    # borrar releases viejos, conservando los últimos 5
+    ls -dt "$RELEASES"/20* | tail -n +6 | xargs -r rm -rf
+    exit 0
+  fi
+done
+
+# 5. La app no levantó → ROLLBACK automático a la versión anterior
+echo "✗ Health check falló. Rollback a: $CURRENT"
+if [ -n "$CURRENT" ] && [ -d "$CURRENT" ]; then
+  ln -sfn "$CURRENT" "$RELEASES/current"
+  sudo systemctl restart miapp
+fi
+exit 1                                # el step falla → el pipeline queda rojo → notificación</code></pre>
+  </div>
+  </div>
+
+  <div data-tech-variant="dotnet" hidden>
+  <div class="codeblock">
+    <div class="code-title">Script de activación — .NET/Kestrel + systemd (corre por SSH en el servidor)</div>
+    <pre><code class="lang-bash">#!/usr/bin/env bash
+set -euo pipefail                     # cualquier error corta el script
+
+RELEASES=/opt/deploys/releases
+TS=$(date +%Y%m%d-%H%M%S)
+
+# 1. Desempaquetar la nueva versión en su propio directorio (queda el historial)
+mkdir -p "$RELEASES/$TS"
+tar xzf /opt/deploys/incoming/app.tar.gz -C "$RELEASES/$TS"
+rm -f /opt/deploys/incoming/app.tar.gz
+
+# 2. Guardar referencia a la versión activa y activar la nueva (symlink)
+CURRENT=$(readlink -f "$RELEASES/current" || true)
+ln -sfn "$RELEASES/$TS" "$RELEASES/current"
+sudo systemctl restart miapp          # el servicio ejecuta: dotnet /opt/deploys/releases/current/MiApp.dll
+
+# 3. Health check: esperar hasta 60s a que la app responda
+for i in $(seq 1 12); do
+  sleep 5
+  if curl -sf http://localhost:5000/health > /dev/null; then
+    echo "✓ Deploy OK: $TS"
+    # borrar releases viejos, conservando los últimos 5
+    ls -dt "$RELEASES"/20* | tail -n +6 | xargs -r rm -rf
+    exit 0
+  fi
+done
+
+# 4. La app no levantó → ROLLBACK automático a la versión anterior
+echo "✗ Health check falló. Rollback a: $CURRENT"
+if [ -n "$CURRENT" ] && [ -d "$CURRENT" ]; then
+  ln -sfn "$CURRENT" "$RELEASES/current"
+  sudo systemctl restart miapp
+fi
+exit 1                                # el step falla → el pipeline queda rojo → notificación</code></pre>
+  </div>
+  </div>
+
+  <div data-tech-variant="go" hidden>
+  <div class="codeblock">
+    <div class="code-title">Script de activación — Go (binario) + systemd (corre por SSH en el servidor)</div>
+    <pre><code class="lang-bash">#!/usr/bin/env bash
+set -euo pipefail                     # cualquier error corta el script
+
+RELEASES=/opt/deploys/releases
+TS=$(date +%Y%m%d-%H%M%S)
+
+# 1. Archivar el binario nuevo con timestamp (queda el historial)
+mv /opt/deploys/incoming/miapp "$RELEASES/miapp-$TS"
+chmod +x "$RELEASES/miapp-$TS"
+
+# 2. Guardar referencia a la versión activa y activar la nueva (symlink)
+CURRENT=$(readlink -f "$RELEASES/current" || true)
+ln -sfn "$RELEASES/miapp-$TS" "$RELEASES/current"
+sudo systemctl restart miapp          # el servicio ejecuta /opt/deploys/releases/current
+
+# 3. Health check: esperar hasta 60s a que la app responda
+for i in $(seq 1 12); do
+  sleep 5
+  if curl -sf http://localhost:8080/health > /dev/null; then
+    echo "✓ Deploy OK: miapp-$TS"
+    # borrar releases viejos, conservando los últimos 5
+    ls -t "$RELEASES"/miapp-* | tail -n +6 | xargs -r rm -f
+    exit 0
+  fi
+done
+
+# 4. La app no levantó → ROLLBACK automático a la versión anterior
+echo "✗ Health check falló. Rollback a: $CURRENT"
+if [ -n "$CURRENT" ] && [ -f "$CURRENT" ]; then
+  ln -sfn "$CURRENT" "$RELEASES/current"
+  sudo systemctl restart miapp
+fi
+exit 1                                # el step falla → el pipeline queda rojo → notificación</code></pre>
+  </div>
+  </div>
+
+
+  <ul>
+    <li><strong>Endpoint de salud</strong>: el script necesita un
+      <code>/health</code> que devuelva 200 cuando la app está lista. Casi todos los frameworks lo resuelven en una línea (Actuator en Spring Boot, un
+      handler en Express/FastAPI/ASP.NET/net-http); si no, un endpoint que responda <code>OK</code> alcanza.</li>
+    <li><strong>Rollback manual desde GitHub</strong>: como los deploys guardan cada versión con
+      timestamp, un workflow con <code>workflow_dispatch</code> que reciba el nombre del
+      release y re-linkee el symlink te da rollback con un click, sin entrar al servidor.</li>
+    <li><strong>Rollback "hacia adelante"</strong>: la alternativa git-céntrica es revertir
+      el commit (<code>git revert</code>) y dejar que el pipeline despliegue la reversión.
+      Más lento (recompila), pero deja el historial impecable. Ambos enfoques conviven.</li>
+  </ul>
+
+  <div class="callout warn">
+    <span class="tag">Ensayalo</span>
+    <p>
+      Un rollback que nunca probaste no existe. Probalo en dev a propósito: desplegá una
+      versión con el health check roto y verificá que el script vuelve solo a la anterior.
+    </p>
+  </div>
+</section>
+
+<!-- ================= 13 ================= -->
+<section id="s13">
+  <span class="sec-num">13 · Avisos</span>
+  <h2>Notificaciones: enterate sin mirar la pestaña Actions</h2>
+  <p>
+    GitHub ya te manda un <strong>email automático</strong> cuando un workflow tuyo falla
+    (configurable en tu perfil → Notifications). Para avisos a un canal del equipo, el
+    estándar es Slack con la action oficial
+    <a href="https://github.com/slackapi/slack-github-action" target="_blank" rel="noopener">slackapi/slack-github-action</a>:
+  </p>
+  <div class="codeblock">
+    <pre><code class="lang-yaml">  notificar:
+    needs: [build, deploy]
+    if: always()                     # corre SIEMPRE, haya fallado o no lo anterior
+    runs-on: ubuntu-latest
+    steps:
+      - name: Aviso a Slack
+        uses: slackapi/slack-github-action@v2
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}   # Incoming Webhook del canal
+          webhook-type: incoming-webhook
+          payload: |
+            text: "${{ contains(needs.*.result, 'failure') && '🔴 FALLÓ' || '🟢 OK' }} \
+            ${{ github.workflow }} · ${{ github.ref_name }} · \
+            ${{ github.event.head_commit.message }} \
+            https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"</code></pre>
+  </div>
+  <p>Las tres piezas que hacen funcionar esto:</p>
+  <ul>
+    <li><code>if: always()</code> — sin esto, el job de notificación se saltea cuando algo
+      falla (que es justo cuando más lo querés).</li>
+    <li><code>needs.*.result</code> — el resultado de cada job previo
+      (<code>success</code>, <code>failure</code>, <code>cancelled</code>, <code>skipped</code>),
+      para armar el mensaje según cómo terminó.</li>
+    <li>El link al <code>run_id</code> — que el mensaje te lleve con un click al log del error.</li>
+  </ul>
+  <p>
+    Para email explícito (más allá del automático de GitHub) existe
+    <code>dawidd6/action-send-mail</code>; para Teams y Discord hay actions equivalentes
+    basadas en webhooks. El patrón es idéntico.
+  </p>
+</section>
+
+<!-- ================= 14 ================= -->
+<section id="s14">
+  <span class="sec-num">14 · Seguridad</span>
+  <h2>Buenas prácticas de seguridad</h2>
+  <p>Tu pipeline tiene llaves de tus servidores: tratalo como infraestructura crítica.</p>
+  <ul>
+    <li>
+      <strong>Mínimo privilegio en el token del workflow.</strong> Cada run recibe un
+      <code>GITHUB_TOKEN</code> automático. Por defecto puede tener permisos de escritura
+      sobre el repo; bajalo explícitamente:
+      <div class="codeblock"><pre><code class="lang-yaml">permissions:
+  contents: read        # el pipeline solo necesita LEER el código
+# y en Settings → Actions → General: "Workflow permissions" → Read repository contents</code></pre></div>
+    </li>
+    <li>
+      <strong>Mínimo privilegio en el servidor.</strong> El usuario SSH de deploy no es
+      root: solo escribe en <code>/opt/deploys</code> (y <code>webapps/</code> si es Java), y su
+      <code>sudoers</code> permite únicamente reiniciar el servicio de la app.
+      Una clave SSH <em>distinta por ambiente</em>, usada solo para esto.
+    </li>
+    <li>
+      <strong>Secret scanning + push protection</strong> (Settings → Code security):
+      GitHub escanea el repo buscando credenciales filtradas y <em>bloquea el push</em>
+      si detecta una. Gratis en repos públicos; activalo ya.
+    </li>
+    <li>
+      <strong>Pinneá las actions de terceros.</strong> <code>@v1</code> es una etiqueta móvil:
+      si al mantenedor le comprometen la cuenta, tu pipeline ejecuta código ajeno con tus
+      secrets. Para actions que tocan secrets, fijá el <strong>SHA del commit</strong>:
+      <div class="codeblock"><pre><code class="lang-yaml">      - uses: appleboy/ssh-action@ff2b0a4b6a1f6b6c1a2ee4354d1f6a4d3743d1c0   # v1.2.4
+        # el comentario documenta a qué versión corresponde el SHA</code></pre></div>
+      Con Dependabot configurado (sección <a href="#s16">16</a>), los SHAs se actualizan
+      solos vía PR.
+    </li>
+    <li>
+      <strong>Cuidado con <code>pull_request_target</code> y los self-hosted en repos
+      públicos.</strong> Son las dos vías clásicas por las que un desconocido ejecuta
+      código en tu infraestructura. Si tu repo es privado y usás <code>pull_request</code>
+      normal, estás bien.
+    </li>
+    <li>
+      <strong>Environments como barrera</strong>: los secrets de <code>produccion</code>
+      solo existen para jobs que pasaron por sus protection rules. Aunque alguien pushee
+      un workflow malicioso a una rama, no puede leer los secrets de prod sin la aprobación.
+    </li>
+    <li>
+      <strong>OIDC para la nube</strong> (si algún día desplegás a AWS/Azure/GCP): en lugar
+      de guardar credenciales cloud como secrets, el workflow se autentica con tokens
+      efímeros federados. Es la práctica de referencia actual; para SSH no aplica, pero
+      conviene saber que existe.
+    </li>
+  </ul>
+</section>
+
+<!-- ================= 15 ================= -->
+<section id="s15">
+  <span class="sec-num">15 · No repetirse</span>
+  <h2>Workflows reutilizables y composite actions</h2>
+  <p>
+    Cuando el deploy a dev, staging y prod es el mismo bloque copiado tres veces, cada
+    corrección hay que hacerla tres veces (y te vas a olvidar una). Dos mecanismos para
+    factorizar:
+  </p>
+  <h3>Workflow reutilizable (<code>workflow_call</code>) — reutiliza jobs enteros</h3>
+  <div class="codeblock">
+    <div class="code-title">.github/workflows/deploy-reusable.yml — la "función"</div>
+    <pre><code class="lang-yaml">name: Deploy (reutilizable)
+
+on:
+  workflow_call:                     # ← este workflow se invoca desde otros, no por eventos
+    inputs:
+      environment:
+        required: true
+        type: string
+    secrets:                         # los secrets se declaran y se pasan explícitamente
+      DEPLOY_HOST: {required: true}
+      DEPLOY_USER: {required: true}
+      DEPLOY_SSH_KEY: {required: true}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with: {name: app-package, path: dist}
+      - uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          source: dist/*
+          target: /opt/deploys/incoming/
+          strip_components: 1
+      # ... paso de activación por SSH ...</code></pre>
+  </div>
+  <div class="codeblock">
+    <div class="code-title">El workflow principal lo invoca como un job más</div>
+    <pre><code class="lang-yaml">jobs:
+  build: [...]
+
+  deploy-dev:
+    needs: build
+    uses: ./.github/workflows/deploy-reusable.yml   # ← "llamada" al workflow
+    with:
+      environment: dev
+    secrets: inherit          # pasa los secrets del contexto (incluidos los del environment)</code></pre>
+  </div>
+  <h3>Composite action — reutiliza grupos de steps</h3>
+  <p>
+    Vive en <code>.github/actions/mi-action/action.yml</code> dentro del repo y agrupa
+    steps (ej: "checkout + setup del lenguaje + cache" que repetís en todos los jobs). Se usa con
+    <code>uses: ./.github/actions/mi-action</code>. Regla rápida:
+    <strong>steps repetidos → composite action; jobs repetidos → workflow reutilizable</strong>.
+  </p>
+  <p>
+    Nota: en nuestro <a href="#final">workflow final</a> logramos no repetirnos de una
+    tercera manera — un único job de deploy cuyo <code>environment:</code> es dinámico.
+    Para un solo repo con un flujo lineal alcanza y sobra; los reutilizables ganan cuando
+    tenés varios repos o los deploys difieren entre ambientes.
+  </p>
+</section>
+
+<!-- ================= 16 ================= -->
+<section id="s16">
+  <span class="sec-num">16 · Lo que nadie te contó</span>
+  <h2>Temas que te faltaban (y te van a morder si los ignorás)</h2>
+  <ul>
+    <li>
+      <strong>Concurrency — el bug más traicionero.</strong> Dos pushes seguidos = dos
+      pipelines desplegando <em>al mismo tiempo</em> al mismo servidor. Evitalo declarando
+      un grupo de concurrencia:
+      <div class="codeblock"><pre><code class="lang-yaml">concurrency:
+  group: cicd-${{ github.ref }}     # un pipeline por rama a la vez
+  cancel-in-progress: false         # el segundo espera; no cancela un deploy a medias</code></pre></div>
+    </li>
+    <li>
+      <strong>Branch protection + required checks.</strong> Settings → Branches →
+      protegé <code>main</code>: exigí PR con revisión y que el check de build/tests esté
+      verde para mergear. Es el candado que hace que "main siempre deployable" sea verdad.
+    </li>
+    <li>
+      <strong>Dependabot para las actions.</strong> Un archivo y te olvidás de perseguir versiones:
+      <div class="codeblock"><div class="code-title">.github/dependabot.yml</div><pre><code class="lang-yaml">version: 2
+updates:
+  - package-ecosystem: github-actions   # PRs automáticos cuando checkout, setup-java, etc. publican versión nueva
+    directory: /
+    schedule: {interval: weekly}
+  - package-ecosystem: maven            # el de tu stack: maven, npm, pip, nuget o gomod
+    directory: /
+    schedule: {interval: weekly}</code></pre></div>
+    </li>
+    <li>
+      <strong>Timeouts.</strong> Por defecto un job puede colgarse hasta 6 horas (y consumir
+      minutos). Poné <code>timeout-minutes: 15</code> en cada job.
+    </li>
+    <li>
+      <strong>Badge de estado</strong> en el README:
+      <code>![CI](https://github.com/usuario/repo/actions/workflows/ci-cd.yml/badge.svg)</code> —
+      el semáforo del proyecto a la vista.
+    </li>
+    <li>
+      <strong>Versionar el artefacto.</strong> Meté el SHA del commit en el nombre del paquete
+      o en un archivo de versión adentro: cuando algo falle en prod, saber <em>exactamente</em>
+      qué commit está corriendo no tiene precio.
+    </li>
+    <li>
+      <strong>Debug de workflows.</strong> Para YAML inválido antes de pushear:
+      <a href="https://github.com/rhysd/actionlint" target="_blank" rel="noopener">actionlint</a>
+      (linter de la comunidad, muy adoptado) y la extensión oficial
+      <strong>"GitHub Actions" para VS Code</strong> (autocompletado y validación del schema).
+      Para runs fallando: re-ejecutá con "Enable debug logging" activado.
+    </li>
+    <li>
+      <strong>Los minutos cuestan</strong> (en repos privados). El cache de dependencias, los
+      timeouts y evitar builds redundantes (<code>paths-ignore: ['**.md']</code> en el
+      trigger) mantienen la cuota a raya.
+    </li>
+  </ul>
+</section>
+
+<!-- ================= 17 FINAL ================= -->
+<section id="final">
+  <span class="sec-num">17 · Todo junto</span>
+  <h2>El workflow completo para tu caso</h2>
+  <p>
+    Compila el artefacto una sola vez, corre los tests como gate, resuelve el
+    ambiente según la rama (<code>develop</code> → <span class="env dev">dev</span>,
+    <code>release/*</code> → <span class="env stg">staging</span>, <code>main</code> →
+    <span class="env prod">producción</span> con aprobación manual), despliega por
+    SCP + SSH con health check y rollback automático, y avisa a Slack.
+    El YAML de abajo ya está adaptado al stack que elegiste arriba.
+  </p>
+  <p><strong>Preparación previa (una sola vez):</strong></p>
+  <ol>
+    <li>Creá los environments <code>dev</code>, <code>staging</code> y <code>produccion</code>
+      en Settings → Environments. A <code>produccion</code> ponele <em>Required reviewers</em>
+      (vos) y <em>Deployment branches: main</em>.</li>
+    <li>En <strong>cada</strong> environment cargá sus secrets: <code>DEPLOY_HOST</code>,
+      <code>DEPLOY_USER</code>, <code>DEPLOY_SSH_KEY</code> (clave privada; la pública va al
+      <code>authorized_keys</code> del usuario de deploy en ese servidor).</li>
+    <li>Como secret de <em>repositorio</em>: <code>SLACK_WEBHOOK_URL</code> (si querés Slack).</li>
+    <li>En cada servidor: usuario <code>deploy</code> sin privilegios, directorios
+      <code>/opt/deploys/incoming</code> y <code>/opt/deploys/releases</code>, y
+      <span data-tech-variant="java">Tomcat corriendo como servicio, con sudoers
+      limitado a <code>systemctl restart tomcat</code>.</span>
+      <span data-tech-variant="node" hidden>un servicio systemd <code>miapp.service</code> que
+      ejecute <code>node dist/server.js</code> (ajustá el entrypoint) con
+      <code>WorkingDirectory=/opt/deploys/releases/current</code>, y sudoers limitado a
+      <code>systemctl restart miapp</code>. Node instalado en el server.</span>
+      <span data-tech-variant="python" hidden>un servicio systemd <code>miapp.service</code> que
+      ejecute <code>.venv/bin/gunicorn app:app</code> (ajustá el módulo) con
+      <code>WorkingDirectory=/opt/deploys/releases/current</code>, y sudoers limitado a
+      <code>systemctl restart miapp</code>. Python 3 instalado en el server.</span>
+      <span data-tech-variant="dotnet" hidden>un servicio systemd <code>miapp.service</code> que
+      ejecute <code>dotnet /opt/deploys/releases/current/MiApp.dll</code>, y sudoers limitado a
+      <code>systemctl restart miapp</code>. El runtime de ASP.NET instalado en el server
+      (o publicá self-contained y ni eso).</span>
+      <span data-tech-variant="go" hidden>un servicio systemd <code>miapp.service</code> con
+      <code>ExecStart=/opt/deploys/releases/current</code>, y sudoers limitado a
+      <code>systemctl restart miapp</code>. Nada más: el binario no necesita runtime.</span>
+    </li>
+  </ol>
+
+  <div data-tech-variant="java">
+  <div class="codeblock">
+    <div class="code-title">.github/workflows/ci-cd.yml — Java (.war)</div>
+    <pre><code class="lang-yaml">name: CI/CD — deploy a dev/staging/produccion
+
+on:
+  push:
+    branches: [main, develop, 'release/**']
+    paths-ignore: ['**.md', 'docs/**']     # no gastes builds en cambios de documentación
+  pull_request:
+    branches: [main, develop]              # los PRs solo compilan y testean (sin deploy)
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Forzar deploy a un ambiente'
+        type: choice
+        options: [dev, staging, produccion]
+
+permissions:
+  contents: read                           # mínimo privilegio para el GITHUB_TOKEN
+
+concurrency:
+  group: cicd-${{ github.ref }}            # nunca dos pipelines de la misma rama a la vez
+  cancel-in-progress: false
+
+jobs:
+  # ════════════════════ 1 · BUILD + TESTS (quality gate) ════════════════════
+  build:
+    name: Compilar y testear
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'               # ajustá a la versión de tu proyecto
+          cache: maven
+
+      - name: Tests (unitarios + integración)
+        run: mvn -B -ntp verify            # si algo falla acá, no hay deploy
+
+      - name: Reporte de tests
+        if: always()                       # subí el reporte aunque los tests fallen
+        uses: actions/upload-artifact@v4
+        with:
+          name: reportes-tests
+          path: target/surefire-reports/
+          retention-days: 7
+
+      - name: Empaquetar WAR
+        run: mvn -B -ntp package -DskipTests   # los tests ya corrieron en 'verify'
+
+      - name: Publicar el artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-package
+          path: target/*.war
+          retention-days: 7
+          if-no-files-found: error
+
+  # ════════════════════ 2 · MAPEO RAMA → AMBIENTE ════════════════════
+  mapear:
+    name: Resolver ambiente
+    if: github.event_name != 'pull_request'   # los PRs no despliegan
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      env_name: ${{ steps.map.outputs.env_name }}
+    steps:
+      - id: map
+        env:
+          MANUAL: ${{ inputs.environment }}   # viene de workflow_dispatch (o vacío)
+        run: |
+          if [ -n "$MANUAL" ]; then
+            echo "env_name=$MANUAL" >> "$GITHUB_OUTPUT"
+          else
+            case "$GITHUB_REF_NAME" in
+              main)      echo "env_name=produccion" >> "$GITHUB_OUTPUT" ;;
+              release/*) echo "env_name=staging"    >> "$GITHUB_OUTPUT" ;;
+              *)         echo "env_name=dev"        >> "$GITHUB_OUTPUT" ;;
+            esac
+          fi
+
+  # ════════════════════ 3 · DEPLOY (un job, tres ambientes) ════════════════════
+  deploy:
+    name: Deploy a ${{ needs.mapear.outputs.env_name }}
+    needs: [build, mapear]
+    runs-on: ubuntu-latest                 # o [self-hosted, deploy] si tu red es privada
+    timeout-minutes: 15
+    environment:
+      name: ${{ needs.mapear.outputs.env_name }}   # ← activa secrets y reglas del ambiente
+      # produccion tiene required reviewers → el job espera tu aprobación acá
+    steps:
+      - name: Descargar el artefacto
+        uses: actions/download-artifact@v4
+        with:
+          name: app-package
+          path: dist
+
+      - name: Copiar al servidor
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}       # ← valor del environment activo
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          source: dist/*.war
+          target: /opt/deploys/incoming/
+          strip_components: 1
+
+      - name: Activar release (health check + rollback automático)
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            RELEASES=/opt/deploys/releases
+            WEBAPPS=/opt/tomcat/webapps
+            TS=$(date +%Y%m%d-%H%M%S)
+
+            WAR=$(ls /opt/deploys/incoming/*.war | head -1)
+            mv "$WAR" "$RELEASES/miapp-$TS.war"
+            CURRENT=$(readlink -f "$RELEASES/current.war" 2>/dev/null || true)
+
+            ln -sfn "$RELEASES/miapp-$TS.war" "$RELEASES/current.war"
+            cp -f "$RELEASES/current.war" "$WEBAPPS/miapp.war"
+            sudo systemctl restart tomcat
+
+            for i in $(seq 1 12); do
+              sleep 5
+              if curl -sf http://localhost:8080/miapp/health > /dev/null; then
+                echo "✓ Deploy OK: miapp-$TS.war"
+                ls -t "$RELEASES"/miapp-*.war | tail -n +6 | xargs -r rm -f
+                exit 0
+              fi
+            done
+
+            echo "✗ Health check falló — rollback"
+            if [ -n "$CURRENT" ] && [ -f "$CURRENT" ]; then
+              ln -sfn "$CURRENT" "$RELEASES/current.war"
+              cp -f "$CURRENT" "$WEBAPPS/miapp.war"
+              sudo systemctl restart tomcat
+            fi
+            exit 1
+
+  # ════════════════════ 4 · NOTIFICACIÓN (siempre corre) ════════════════════
+  notificar:
+    name: Avisar resultado
+    needs: [build, mapear, deploy]
+    if: always() && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: slackapi/slack-github-action@v2
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: "${{ contains(needs.*.result, 'failure') && ':red_circle: FALLÓ' || ':large_green_circle: OK' }} \
+            *${{ github.workflow }}* → ${{ needs.mapear.outputs.env_name }} \
+            (`${{ github.ref_name }}`) \
+            <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|ver log>"</code></pre>
+  </div>
+  </div>
+
+  <div data-tech-variant="node" hidden>
+  <div class="codeblock">
+    <div class="code-title">.github/workflows/ci-cd.yml — Node.js</div>
+    <pre><code class="lang-yaml">name: CI/CD — deploy a dev/staging/produccion
+
+on:
+  push:
+    branches: [main, develop, 'release/**']
+    paths-ignore: ['**.md', 'docs/**']     # no gastes builds en cambios de documentación
+  pull_request:
+    branches: [main, develop]              # los PRs solo compilan y testean (sin deploy)
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Forzar deploy a un ambiente'
+        type: choice
+        options: [dev, staging, produccion]
+
+permissions:
+  contents: read                           # mínimo privilegio para el GITHUB_TOKEN
+
+concurrency:
+  group: cicd-${{ github.ref }}            # nunca dos pipelines de la misma rama a la vez
+  cancel-in-progress: false
+
+jobs:
+  # ════════════════════ 1 · BUILD + TESTS (quality gate) ════════════════════
+  build:
+    name: Compilar y testear
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'               # ajustá a la versión de tu proyecto
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Tests
+        run: npm test                      # si algo falla acá, no hay deploy
+
+      - name: Build de producción
+        run: npm run build                 # omitilo si tu app no compila
+
+      - name: Empaquetar
+        run: tar czf app.tar.gz dist package.json package-lock.json
+
+      - name: Publicar el artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-package
+          path: app.tar.gz
+          retention-days: 7
+          if-no-files-found: error
+
+  # ════════════════════ 2 · MAPEO RAMA → AMBIENTE ════════════════════
+  mapear:
+    name: Resolver ambiente
+    if: github.event_name != 'pull_request'   # los PRs no despliegan
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      env_name: ${{ steps.map.outputs.env_name }}
+    steps:
+      - id: map
+        env:
+          MANUAL: ${{ inputs.environment }}   # viene de workflow_dispatch (o vacío)
+        run: |
+          if [ -n "$MANUAL" ]; then
+            echo "env_name=$MANUAL" >> "$GITHUB_OUTPUT"
+          else
+            case "$GITHUB_REF_NAME" in
+              main)      echo "env_name=produccion" >> "$GITHUB_OUTPUT" ;;
+              release/*) echo "env_name=staging"    >> "$GITHUB_OUTPUT" ;;
+              *)         echo "env_name=dev"        >> "$GITHUB_OUTPUT" ;;
+            esac
+          fi
+
+  # ════════════════════ 3 · DEPLOY (un job, tres ambientes) ════════════════════
+  deploy:
+    name: Deploy a ${{ needs.mapear.outputs.env_name }}
+    needs: [build, mapear]
+    runs-on: ubuntu-latest                 # o [self-hosted, deploy] si tu red es privada
+    timeout-minutes: 15
+    environment:
+      name: ${{ needs.mapear.outputs.env_name }}   # ← activa secrets y reglas del ambiente
+      # produccion tiene required reviewers → el job espera tu aprobación acá
+    steps:
+      - name: Descargar el artefacto
+        uses: actions/download-artifact@v4
+        with:
+          name: app-package
+          path: dist
+
+      - name: Copiar al servidor
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}       # ← valor del environment activo
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          source: dist/app.tar.gz
+          target: /opt/deploys/incoming/
+          strip_components: 1
+
+      - name: Activar release (health check + rollback automático)
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            RELEASES=/opt/deploys/releases
+            TS=$(date +%Y%m%d-%H%M%S)
+
+            mkdir -p "$RELEASES/$TS"
+            tar xzf /opt/deploys/incoming/app.tar.gz -C "$RELEASES/$TS"
+            rm -f /opt/deploys/incoming/app.tar.gz
+            cd "$RELEASES/$TS" && npm ci --omit=dev
+
+            CURRENT=$(readlink -f "$RELEASES/current" 2>/dev/null || true)
+            ln -sfn "$RELEASES/$TS" "$RELEASES/current"
+            sudo systemctl restart miapp
+
+            for i in $(seq 1 12); do
+              sleep 5
+              if curl -sf http://localhost:3000/health > /dev/null; then
+                echo "✓ Deploy OK: $TS"
+                ls -dt "$RELEASES"/20* | tail -n +6 | xargs -r rm -rf
+                exit 0
+              fi
+            done
+
+            echo "✗ Health check falló — rollback"
+            if [ -n "$CURRENT" ] && [ -d "$CURRENT" ]; then
+              ln -sfn "$CURRENT" "$RELEASES/current"
+              sudo systemctl restart miapp
+            fi
+            exit 1
+
+  # ════════════════════ 4 · NOTIFICACIÓN (siempre corre) ════════════════════
+  notificar:
+    name: Avisar resultado
+    needs: [build, mapear, deploy]
+    if: always() && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: slackapi/slack-github-action@v2
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: "${{ contains(needs.*.result, 'failure') && ':red_circle: FALLÓ' || ':large_green_circle: OK' }} \
+            *${{ github.workflow }}* → ${{ needs.mapear.outputs.env_name }} \
+            (`${{ github.ref_name }}`) \
+            <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|ver log>"</code></pre>
+  </div>
+  </div>
+  <div data-tech-variant="python" hidden>
+  <div class="codeblock">
+    <div class="code-title">.github/workflows/ci-cd.yml — Python</div>
+    <pre><code class="lang-yaml">name: CI/CD — deploy a dev/staging/produccion
+
+on:
+  push:
+    branches: [main, develop, 'release/**']
+    paths-ignore: ['**.md', 'docs/**']     # no gastes builds en cambios de documentación
+  pull_request:
+    branches: [main, develop]              # los PRs solo compilan y testean (sin deploy)
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Forzar deploy a un ambiente'
+        type: choice
+        options: [dev, staging, produccion]
+
+permissions:
+  contents: read                           # mínimo privilegio para el GITHUB_TOKEN
+
+concurrency:
+  group: cicd-${{ github.ref }}            # nunca dos pipelines de la misma rama a la vez
+  cancel-in-progress: false
+
+jobs:
+  # ════════════════════ 1 · BUILD + TESTS (quality gate) ════════════════════
+  build:
+    name: Testear y empaquetar
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'           # ajustá a la versión de tu proyecto
+          cache: pip
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Tests
+        run: pytest                        # si algo falla acá, no hay deploy
+
+      - name: Empaquetar
+        run: tar czf app.tar.gz app/ requirements.txt   # ajustá a tu estructura
+
+      - name: Publicar el artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-package
+          path: app.tar.gz
+          retention-days: 7
+          if-no-files-found: error
+
+  # ════════════════════ 2 · MAPEO RAMA → AMBIENTE ════════════════════
+  mapear:
+    name: Resolver ambiente
+    if: github.event_name != 'pull_request'   # los PRs no despliegan
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      env_name: ${{ steps.map.outputs.env_name }}
+    steps:
+      - id: map
+        env:
+          MANUAL: ${{ inputs.environment }}   # viene de workflow_dispatch (o vacío)
+        run: |
+          if [ -n "$MANUAL" ]; then
+            echo "env_name=$MANUAL" >> "$GITHUB_OUTPUT"
+          else
+            case "$GITHUB_REF_NAME" in
+              main)      echo "env_name=produccion" >> "$GITHUB_OUTPUT" ;;
+              release/*) echo "env_name=staging"    >> "$GITHUB_OUTPUT" ;;
+              *)         echo "env_name=dev"        >> "$GITHUB_OUTPUT" ;;
+            esac
+          fi
+
+  # ════════════════════ 3 · DEPLOY (un job, tres ambientes) ════════════════════
+  deploy:
+    name: Deploy a ${{ needs.mapear.outputs.env_name }}
+    needs: [build, mapear]
+    runs-on: ubuntu-latest                 # o [self-hosted, deploy] si tu red es privada
+    timeout-minutes: 15
+    environment:
+      name: ${{ needs.mapear.outputs.env_name }}   # ← activa secrets y reglas del ambiente
+      # produccion tiene required reviewers → el job espera tu aprobación acá
+    steps:
+      - name: Descargar el artefacto
+        uses: actions/download-artifact@v4
+        with:
+          name: app-package
+          path: dist
+
+      - name: Copiar al servidor
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}       # ← valor del environment activo
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          source: dist/app.tar.gz
+          target: /opt/deploys/incoming/
+          strip_components: 1
+
+      - name: Activar release (health check + rollback automático)
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            RELEASES=/opt/deploys/releases
+            TS=$(date +%Y%m%d-%H%M%S)
+
+            mkdir -p "$RELEASES/$TS"
+            tar xzf /opt/deploys/incoming/app.tar.gz -C "$RELEASES/$TS"
+            rm -f /opt/deploys/incoming/app.tar.gz
+            cd "$RELEASES/$TS"
+            python3 -m venv .venv
+            .venv/bin/pip install --quiet -r requirements.txt
+
+            CURRENT=$(readlink -f "$RELEASES/current" 2>/dev/null || true)
+            ln -sfn "$RELEASES/$TS" "$RELEASES/current"
+            sudo systemctl restart miapp
+
+            for i in $(seq 1 12); do
+              sleep 5
+              if curl -sf http://localhost:8000/health > /dev/null; then
+                echo "✓ Deploy OK: $TS"
+                ls -dt "$RELEASES"/20* | tail -n +6 | xargs -r rm -rf
+                exit 0
+              fi
+            done
+
+            echo "✗ Health check falló — rollback"
+            if [ -n "$CURRENT" ] && [ -d "$CURRENT" ]; then
+              ln -sfn "$CURRENT" "$RELEASES/current"
+              sudo systemctl restart miapp
+            fi
+            exit 1
+
+  # ════════════════════ 4 · NOTIFICACIÓN (siempre corre) ════════════════════
+  notificar:
+    name: Avisar resultado
+    needs: [build, mapear, deploy]
+    if: always() && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: slackapi/slack-github-action@v2
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: "${{ contains(needs.*.result, 'failure') && ':red_circle: FALLÓ' || ':large_green_circle: OK' }} \
+            *${{ github.workflow }}* → ${{ needs.mapear.outputs.env_name }} \
+            (`${{ github.ref_name }}`) \
+            <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|ver log>"</code></pre>
+  </div>
+  </div>
+
+  <div data-tech-variant="dotnet" hidden>
+  <div class="codeblock">
+    <div class="code-title">.github/workflows/ci-cd.yml — .NET</div>
+    <pre><code class="lang-yaml">name: CI/CD — deploy a dev/staging/produccion
+
+on:
+  push:
+    branches: [main, develop, 'release/**']
+    paths-ignore: ['**.md', 'docs/**']     # no gastes builds en cambios de documentación
+  pull_request:
+    branches: [main, develop]              # los PRs solo compilan y testean (sin deploy)
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Forzar deploy a un ambiente'
+        type: choice
+        options: [dev, staging, produccion]
+
+permissions:
+  contents: read                           # mínimo privilegio para el GITHUB_TOKEN
+
+concurrency:
+  group: cicd-${{ github.ref }}            # nunca dos pipelines de la misma rama a la vez
+  cancel-in-progress: false
+
+jobs:
+  # ════════════════════ 1 · BUILD + TESTS (quality gate) ════════════════════
+  build:
+    name: Compilar y testear
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'          # ajustá a la versión de tu proyecto
+
+      - name: Tests
+        run: dotnet test                   # si algo falla acá, no hay deploy
+
+      - name: Publicar (compilar para producción)
+        run: dotnet publish -c Release -o publish
+
+      - name: Empaquetar
+        run: tar czf app.tar.gz -C publish .
+
+      - name: Publicar el artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-package
+          path: app.tar.gz
+          retention-days: 7
+          if-no-files-found: error
+
+  # ════════════════════ 2 · MAPEO RAMA → AMBIENTE ════════════════════
+  mapear:
+    name: Resolver ambiente
+    if: github.event_name != 'pull_request'   # los PRs no despliegan
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      env_name: ${{ steps.map.outputs.env_name }}
+    steps:
+      - id: map
+        env:
+          MANUAL: ${{ inputs.environment }}   # viene de workflow_dispatch (o vacío)
+        run: |
+          if [ -n "$MANUAL" ]; then
+            echo "env_name=$MANUAL" >> "$GITHUB_OUTPUT"
+          else
+            case "$GITHUB_REF_NAME" in
+              main)      echo "env_name=produccion" >> "$GITHUB_OUTPUT" ;;
+              release/*) echo "env_name=staging"    >> "$GITHUB_OUTPUT" ;;
+              *)         echo "env_name=dev"        >> "$GITHUB_OUTPUT" ;;
+            esac
+          fi
+
+  # ════════════════════ 3 · DEPLOY (un job, tres ambientes) ════════════════════
+  deploy:
+    name: Deploy a ${{ needs.mapear.outputs.env_name }}
+    needs: [build, mapear]
+    runs-on: ubuntu-latest                 # o [self-hosted, deploy] si tu red es privada
+    timeout-minutes: 15
+    environment:
+      name: ${{ needs.mapear.outputs.env_name }}   # ← activa secrets y reglas del ambiente
+      # produccion tiene required reviewers → el job espera tu aprobación acá
+    steps:
+      - name: Descargar el artefacto
+        uses: actions/download-artifact@v4
+        with:
+          name: app-package
+          path: dist
+
+      - name: Copiar al servidor
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}       # ← valor del environment activo
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          source: dist/app.tar.gz
+          target: /opt/deploys/incoming/
+          strip_components: 1
+
+      - name: Activar release (health check + rollback automático)
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            RELEASES=/opt/deploys/releases
+            TS=$(date +%Y%m%d-%H%M%S)
+
+            mkdir -p "$RELEASES/$TS"
+            tar xzf /opt/deploys/incoming/app.tar.gz -C "$RELEASES/$TS"
+            rm -f /opt/deploys/incoming/app.tar.gz
+
+            CURRENT=$(readlink -f "$RELEASES/current" 2>/dev/null || true)
+            ln -sfn "$RELEASES/$TS" "$RELEASES/current"
+            sudo systemctl restart miapp
+
+            for i in $(seq 1 12); do
+              sleep 5
+              if curl -sf http://localhost:5000/health > /dev/null; then
+                echo "✓ Deploy OK: $TS"
+                ls -dt "$RELEASES"/20* | tail -n +6 | xargs -r rm -rf
+                exit 0
+              fi
+            done
+
+            echo "✗ Health check falló — rollback"
+            if [ -n "$CURRENT" ] && [ -d "$CURRENT" ]; then
+              ln -sfn "$CURRENT" "$RELEASES/current"
+              sudo systemctl restart miapp
+            fi
+            exit 1
+
+  # ════════════════════ 4 · NOTIFICACIÓN (siempre corre) ════════════════════
+  notificar:
+    name: Avisar resultado
+    needs: [build, mapear, deploy]
+    if: always() && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: slackapi/slack-github-action@v2
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: "${{ contains(needs.*.result, 'failure') && ':red_circle: FALLÓ' || ':large_green_circle: OK' }} \
+            *${{ github.workflow }}* → ${{ needs.mapear.outputs.env_name }} \
+            (`${{ github.ref_name }}`) \
+            <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|ver log>"</code></pre>
+  </div>
+  </div>
+
+  <div data-tech-variant="go" hidden>
+  <div class="codeblock">
+    <div class="code-title">.github/workflows/ci-cd.yml — Go</div>
+    <pre><code class="lang-yaml">name: CI/CD — deploy a dev/staging/produccion
+
+on:
+  push:
+    branches: [main, develop, 'release/**']
+    paths-ignore: ['**.md', 'docs/**']     # no gastes builds en cambios de documentación
+  pull_request:
+    branches: [main, develop]              # los PRs solo compilan y testean (sin deploy)
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Forzar deploy a un ambiente'
+        type: choice
+        options: [dev, staging, produccion]
+
+permissions:
+  contents: read                           # mínimo privilegio para el GITHUB_TOKEN
+
+concurrency:
+  group: cicd-${{ github.ref }}            # nunca dos pipelines de la misma rama a la vez
+  cancel-in-progress: false
+
+jobs:
+  # ════════════════════ 1 · BUILD + TESTS (quality gate) ════════════════════
+  build:
+    name: Compilar y testear
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'               # ajustá a la versión de tu go.mod
+
+      - name: Tests
+        run: go test ./...                 # si algo falla acá, no hay deploy
+
+      - name: Compilar el binario
+        run: CGO_ENABLED=0 go build -o miapp .
+
+      - name: Publicar el artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-package
+          path: miapp
+          retention-days: 7
+          if-no-files-found: error
+
+  # ════════════════════ 2 · MAPEO RAMA → AMBIENTE ════════════════════
+  mapear:
+    name: Resolver ambiente
+    if: github.event_name != 'pull_request'   # los PRs no despliegan
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      env_name: ${{ steps.map.outputs.env_name }}
+    steps:
+      - id: map
+        env:
+          MANUAL: ${{ inputs.environment }}   # viene de workflow_dispatch (o vacío)
+        run: |
+          if [ -n "$MANUAL" ]; then
+            echo "env_name=$MANUAL" >> "$GITHUB_OUTPUT"
+          else
+            case "$GITHUB_REF_NAME" in
+              main)      echo "env_name=produccion" >> "$GITHUB_OUTPUT" ;;
+              release/*) echo "env_name=staging"    >> "$GITHUB_OUTPUT" ;;
+              *)         echo "env_name=dev"        >> "$GITHUB_OUTPUT" ;;
+            esac
+          fi
+
+  # ════════════════════ 3 · DEPLOY (un job, tres ambientes) ════════════════════
+  deploy:
+    name: Deploy a ${{ needs.mapear.outputs.env_name }}
+    needs: [build, mapear]
+    runs-on: ubuntu-latest                 # o [self-hosted, deploy] si tu red es privada
+    timeout-minutes: 15
+    environment:
+      name: ${{ needs.mapear.outputs.env_name }}   # ← activa secrets y reglas del ambiente
+      # produccion tiene required reviewers → el job espera tu aprobación acá
+    steps:
+      - name: Descargar el artefacto
+        uses: actions/download-artifact@v4
+        with:
+          name: app-package
+          path: dist
+
+      - name: Copiar al servidor
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}       # ← valor del environment activo
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          source: dist/miapp
+          target: /opt/deploys/incoming/
+          strip_components: 1
+
+      - name: Activar release (health check + rollback automático)
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            RELEASES=/opt/deploys/releases
+            TS=$(date +%Y%m%d-%H%M%S)
+
+            mv /opt/deploys/incoming/miapp "$RELEASES/miapp-$TS"
+            chmod +x "$RELEASES/miapp-$TS"
+
+            CURRENT=$(readlink -f "$RELEASES/current" 2>/dev/null || true)
+            ln -sfn "$RELEASES/miapp-$TS" "$RELEASES/current"
+            sudo systemctl restart miapp
+
+            for i in $(seq 1 12); do
+              sleep 5
+              if curl -sf http://localhost:8080/health > /dev/null; then
+                echo "✓ Deploy OK: miapp-$TS"
+                ls -t "$RELEASES"/miapp-* | tail -n +6 | xargs -r rm -f
+                exit 0
+              fi
+            done
+
+            echo "✗ Health check falló — rollback"
+            if [ -n "$CURRENT" ] && [ -f "$CURRENT" ]; then
+              ln -sfn "$CURRENT" "$RELEASES/current"
+              sudo systemctl restart miapp
+            fi
+            exit 1
+
+  # ════════════════════ 4 · NOTIFICACIÓN (siempre corre) ════════════════════
+  notificar:
+    name: Avisar resultado
+    needs: [build, mapear, deploy]
+    if: always() && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: slackapi/slack-github-action@v2
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: "${{ contains(needs.*.result, 'failure') && ':red_circle: FALLÓ' || ':large_green_circle: OK' }} \
+            *${{ github.workflow }}* → ${{ needs.mapear.outputs.env_name }} \
+            (`${{ github.ref_name }}`) \
+            <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|ver log>"</code></pre>
+  </div>
+  </div>
+
+  <figure>
+    <div class="svg-wrap">
+    <svg viewBox="0 0 860 240" role="img" aria-label="Grafo del workflow final: build y mapear en paralelo, luego deploy con environment dinámico y posible pausa de aprobación, luego notificar que corre siempre">
+      <defs>
+        <marker id="ar6" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" fill="var(--muted)"/>
+        </marker>
+      </defs>
+      <rect class="d-box" x="25" y="40" width="160" height="60" rx="10"/>
+      <text class="d-txt-b" x="105" y="65" text-anchor="middle">build</text>
+      <text class="d-txt-m" x="105" y="83" text-anchor="middle">tests + artefacto listo</text>
+
+      <rect class="d-box" x="25" y="140" width="160" height="60" rx="10"/>
+      <text class="d-txt-b" x="105" y="165" text-anchor="middle">mapear</text>
+      <text class="d-txt-m" x="105" y="183" text-anchor="middle">rama → env_name</text>
+
+      <path class="d-line" d="M185 70 C 250 70, 250 105, 305 112" marker-end="url(#ar6)"/>
+      <path class="d-line" d="M185 170 C 250 170, 250 135, 305 128" marker-end="url(#ar6)"/>
+
+      <rect class="d-box d-box-accent" x="310" y="90" width="200" height="64" rx="10"/>
+      <text class="d-txt-b" x="410" y="112" text-anchor="middle">deploy</text>
+      <text class="d-txt-m" x="410" y="130" text-anchor="middle">environment dinámico</text>
+      <text class="d-txt-m" x="410" y="144" text-anchor="middle">SCP + SSH + health check</text>
+
+      <text class="d-txt-m" x="410" y="78" text-anchor="middle" fill="var(--stg)">✋ pausa de aprobación si es produccion</text>
+
+      <line class="d-line" x1="510" y1="122" x2="590" y2="122" marker-end="url(#ar6)"/>
+      <text class="d-txt-m" x="550" y="112" text-anchor="middle">always()</text>
+
+      <rect class="d-box" x="595" y="90" width="160" height="64" rx="10"/>
+      <text class="d-txt-b" x="675" y="115" text-anchor="middle">notificar</text>
+      <text class="d-txt-m" x="675" y="133" text-anchor="middle">Slack 🟢 / 🔴</text>
+
+      <text class="d-txt-m" x="410" y="215" text-anchor="middle">develop → dev (auto) · release/* → staging (auto) · main → produccion (con aprobación)</text>
+    </svg>
+    </div>
+    <figcaption>El grafo de jobs del workflow final.</figcaption>
+  </figure>
+
+  <div class="callout">
+    <span class="tag">Plan de adopción sugerido</span>
+    <p>
+      No lo actives todo el primer día. Semana 1: solo el job <code>build</code>
+      (CI puro, cero riesgo). Semana 2: deploy automático a dev. Semana 3: staging
+      con <code>release/*</code>. Recién cuando confíes en el proceso, prendé el
+      deploy a producción con la aprobación manual. Cada etapa te da valor por sí sola.
+    </p>
+  </div>
+</section>
+
+<!-- ================= 18 ================= -->
+<section id="recursos">
+  <span class="sec-num">18 · Para seguir</span>
+  <h2>Recursos y herramientas validadas por la comunidad</h2>
+  <ul>
+    <li><a href="https://docs.github.com/actions" target="_blank" rel="noopener">Documentación oficial de GitHub Actions</a> — la referencia; el schema completo del YAML está en "Workflow syntax".</li>
+    <li><a href="https://github.com/actions/starter-workflows" target="_blank" rel="noopener">actions/starter-workflows</a> — plantillas oficiales, incluidas las de Maven/Gradle, Node, Python, .NET y Go (es lo que GitHub te sugiere en la pestaña Actions de tu repo).</li>
+    <li><a href="https://github.com/actions/setup-java" target="_blank" rel="noopener">actions/setup-java</a> y sus pares (<code>setup-node</code>, <code>setup-python</code>, <code>setup-dotnet</code>, <code>setup-go</code>), <a href="https://github.com/actions/upload-artifact" target="_blank" rel="noopener">actions/upload-artifact</a>, <a href="https://github.com/actions/checkout" target="_blank" rel="noopener">actions/checkout</a> — actions oficiales usadas en este curso.</li>
+    <li><a href="https://github.com/appleboy/ssh-action" target="_blank" rel="noopener">appleboy/ssh-action</a> y <a href="https://github.com/appleboy/scp-action" target="_blank" rel="noopener">appleboy/scp-action</a> — el estándar de facto comunitario para deploys por SSH/SCP.</li>
+    <li><a href="https://github.com/slackapi/slack-github-action" target="_blank" rel="noopener">slackapi/slack-github-action</a> — notificaciones a Slack, mantenida por Slack.</li>
+    <li><a href="https://github.com/rhysd/actionlint" target="_blank" rel="noopener">actionlint</a> — linter de workflows; atrapa errores de YAML y de expresiones antes de pushear.</li>
+    <li><strong>Extensión "GitHub Actions" para VS Code</strong> (oficial de GitHub) — autocompletado, validación y monitoreo de runs desde el editor. Si usás VS Code, instalala: es la herramienta puntual que más te conviene para escribir estos archivos.</li>
+    <li><a href="https://docs.github.com/actions/security-for-github-actions" target="_blank" rel="noopener">Security hardening for GitHub Actions</a> — la guía oficial de seguridad; ampliada respecto a la sección 14.</li>
+  </ul>
+  <p class="footer-note">
+    Versiones de actions verificadas a julio de 2026. Configurá Dependabot
+    (sección 16) y este detalle deja de importar: las actualizaciones te llegan como PRs.
+  </p>
+</section>
+
+</main>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- YAML / bash highlighter ---------- */
+  function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+  function hlLine(line, lang){
+    var out = "", comment = "";
+    // separar comentario (naïf: primer # no precedido por caracter de palabra ni dentro de ${{)
+    var m = line.match(/^(.*?)(\s#\s.*|^#.*)$/);
+    if (m && line.indexOf("${{") === -1 || (m && line.indexOf("#") > line.lastIndexOf("}}"))){
+      if(m){ line = m[1]; comment = m[2]; }
+    } else { comment = ""; }
+    var body = esc(line);
+    // expresiones ${{ ... }}
+    body = body.replace(/\$\{\{[^}]*\}\}/g, function(x){return '<span class="tok-expr">'+x+'</span>';});
+    if(lang === "yaml"){
+      // clave al inicio:  key:  |  - key:
+      body = body.replace(/^(\s*(?:-\s+)?)((?:[\w.\/-]+|'[^']*'|"[^"]*")?)(:)(\s|$)/, function(_,a,b,c,d){
+        return a+'<span class="tok-key">'+b+c+'</span>'+d;
+      });
+      // strings entre comillas
+      body = body.replace(/('[^'<>]*'|"[^"<>]*")/g, function(x){
+        if(x.indexOf("tok-") !== -1) return x;
+        return '<span class="tok-str">'+x+'</span>';
+      });
+      // números sueltos al final de línea
+      body = body.replace(/(:\s*<\/span>?\s*)(\d+)(\s*)$/, '$1<span class="tok-num">$2</span>$3');
+    }
+    if(comment){ body += '<span class="tok-com">'+esc(comment)+'</span>'; }
+    return body;
+  }
+  document.querySelectorAll("pre code").forEach(function(block){
+    var lang = block.className.indexOf("bash") !== -1 ? "bash" : "yaml";
+    var lines = block.textContent.split("\n");
+    block.innerHTML = lines.map(function(l){return hlLine(l, lang);}).join("\n");
+  });
+
+  /* ---------- copy buttons ---------- */
+  document.querySelectorAll(".codeblock").forEach(function(cb){
+    var pre = cb.querySelector("pre"); if(!pre) return;
+    var btn = document.createElement("button");
+    btn.className = "copy"; btn.type = "button"; btn.textContent = "Copiar";
+    btn.addEventListener("click", function(){
+      var txt = pre.innerText;
+      function done(ok){ btn.textContent = ok ? "✓ Copiado" : "Error"; setTimeout(function(){btn.textContent="Copiar";},1600); }
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(txt).then(function(){done(true);},function(){done(false);});
+      } else {
+        var ta=document.createElement("textarea"); ta.value=txt; document.body.appendChild(ta);
+        ta.select(); try{document.execCommand("copy");done(true);}catch(e){done(false);}
+        document.body.removeChild(ta);
+      }
+    });
+    cb.appendChild(btn);
+  });
+
+  /* ---------- scrollspy ---------- */
+  var links = Array.prototype.slice.call(document.querySelectorAll("#toc a"));
+  var map = {};
+  links.forEach(function(a){ map[a.getAttribute("href").slice(1)] = a; });
+  var sections = Array.prototype.slice.call(document.querySelectorAll("section[id]"));
+  if("IntersectionObserver" in window){
+    var current = null;
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){
+        if(e.isIntersecting){
+          if(current) current.classList.remove("active");
+          current = map[e.target.id];
+          if(current){ current.classList.add("active"); }
+        }
+      });
+    }, {rootMargin: "-20% 0px -70% 0px"});
+    sections.forEach(function(s){ io.observe(s); });
+  }
+
+  /* ---------- tech switcher ---------- */
+  var TECHS = ["java","node","python","dotnet","go"];
+  function setTech(t){
+    document.querySelectorAll("[data-tech-variant]").forEach(function(el){
+      el.hidden = el.getAttribute("data-tech-variant") !== t;
+    });
+    document.querySelectorAll(".tech-switch button").forEach(function(b){
+      var on = b.getAttribute("data-tech") === t;
+      b.classList.toggle("on", on);
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+    try{ localStorage.setItem("cicd-tech", t); }catch(e){}
+  }
+  document.querySelectorAll(".tech-switch button").forEach(function(b){
+    b.addEventListener("click", function(){ setTech(b.getAttribute("data-tech")); });
+  });
+  var savedTech = null;
+  try{ savedTech = localStorage.getItem("cicd-tech"); }catch(e){}
+  setTech(TECHS.indexOf(savedTech) !== -1 ? savedTech : "java");
+
+  /* ---------- progress bar ---------- */
+  var bar = document.getElementById("progress");
+  function onScroll(){
+    var h = document.documentElement;
+    var max = h.scrollHeight - h.clientHeight;
+    bar.style.width = (max > 0 ? (h.scrollTop / max) * 100 : 0) + "%";
+  }
+  window.addEventListener("scroll", onScroll, {passive:true});
+  onScroll();
+})();
+</script>
