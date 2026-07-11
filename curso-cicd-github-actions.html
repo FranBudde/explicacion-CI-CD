@@ -263,6 +263,37 @@ details.more .inner{padding:.2rem 1.1rem .8rem}
 .tech-switch button.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:700}
 .tech-switch button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 [data-tech-variant][hidden]{display:none!important}
+
+/* ============ EJERCICIOS ============ */
+.ej{
+  border:1px solid var(--line);border-radius:12px;background:var(--surface);
+  padding:1rem 1.25rem 1.1rem;margin:1.1rem 0;max-width:78ch;
+}
+.ej.done{border-color:var(--accent);background:var(--accent-soft)}
+.ej-head{display:flex;align-items:baseline;gap:.7rem;flex-wrap:wrap}
+.ej-head label{
+  font-family:var(--font-display);font-weight:700;font-size:1.08rem;
+  cursor:pointer;line-height:1.3;
+}
+.ej.done .ej-head label{color:var(--accent)}
+.ej-num{
+  display:block;font-family:var(--font-mono);font-size:.66rem;font-weight:700;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--accent);
+}
+.ej-check{
+  width:1.1rem;height:1.1rem;accent-color:var(--accent);cursor:pointer;
+  flex-shrink:0;position:relative;top:.15rem;
+}
+.lvl{
+  margin-left:auto;font-family:var(--font-mono);font-size:.66rem;font-weight:700;
+  padding:.15em .6em;border-radius:5px;border:1px solid var(--line);
+  color:var(--muted);white-space:nowrap;
+}
+.ej-meta{font-family:var(--font-mono);font-size:.72rem;color:var(--muted);margin:.35rem 0 .7rem}
+.ej-done{font-size:.95rem}
+.lvl-note{font-family:var(--font-body);font-weight:400;font-size:.85rem;color:var(--muted)}
+#ej-progress{font-family:var(--font-mono);font-size:.85rem;font-weight:700;color:var(--accent)}
+
 </style>
 
 <div id="progress"></div>
@@ -289,7 +320,8 @@ details.more .inner{padding:.2rem 1.1rem .8rem}
     <a href="#s16"><span class="n">16</span>Lo que falta que sepas</a>
     <a href="#final"><span class="n">17</span>El workflow completo</a>
     <a href="#gitlab"><span class="n">18</span>¿Y GitLab?</a>
-    <a href="#recursos"><span class="n">19</span>Recursos y herramientas</a>
+    <a href="#ejercicios"><span class="n">19</span>Guía de ejercicios</a>
+    <a href="#recursos"><span class="n">20</span>Recursos y herramientas</a>
   </nav>
 </aside>
 
@@ -356,6 +388,12 @@ details.more .inner{padding:.2rem 1.1rem .8rem}
     ¿Tu equipo usa <strong>GitLab</strong> en vez de GitHub? Leé el curso igual:
     los conceptos son los mismos, y la sección <a href="#gitlab">18</a> traduce
     todo a GitLab CI/CD, con el pipeline equivalente completo.
+  </p>
+  <p>
+    Y cuando termines de leer, no te quedes ahí: la sección
+    <a href="#ejercicios">19</a> es una <strong>guía de 20 ejercicios</strong>,
+    de básicos a avanzados, para practicar cada tema con las manos. Leer este
+    curso te hace entender CI/CD; los ejercicios te hacen saber hacerlo.
   </p>
   <p>
     Las versiones de las actions (<code>@v4</code>, <code>@v5</code>, <code>@v1</code>)
@@ -3067,9 +3105,485 @@ deploy-prod:
   </div>
 </section>
 
-<!-- ================= 19 ================= -->
+<!-- ================= 19 EJERCICIOS ================= -->
+<section id="ejercicios">
+  <span class="sec-num">19 · Manos a la obra</span>
+  <h2>Guía de ejercicios: de cero a tu propio pipeline</h2>
+  <p>
+    Leer sobre CI/CD no te hace saber CI/CD — <strong>hacerlo, sí</strong>. Esta guía
+    tiene 20 ejercicios en 5 niveles que cubren todos los temas del curso, en el mismo
+    orden. Están diseñados para que al terminarlos puedas armar un pipeline completo
+    por tu cuenta y, más importante, <strong>entender cada línea de lo que armaste</strong>.
+  </p>
+  <div class="callout">
+    <span class="tag">Reglas del juego (importan más que los ejercicios)</span>
+    <p>
+      <strong>1 · En orden.</strong> Cada nivel asume el anterior. No saltees aunque te parezca fácil.<br>
+      <strong>2 · Escribí el YAML a mano</strong> en los niveles 1 a 3, sin copiar y pegar.
+      El error de indentación que vas a cometer (y arreglar) enseña más que diez lecturas.<br>
+      <strong>3 · Predecí antes de ejecutar.</strong> Antes de cada push, anotá en una línea
+      qué esperás que pase. Si lo que pasó no coincide, ahí está tu aprendizaje del día.<br>
+      <strong>4 · Un repo laboratorio.</strong> Creá un repo <code>laboratorio-cicd</code> y
+      hacé todo ahí: al final va a ser tu chuleta personal, con historial de commits incluido.<br>
+      <strong>5 · Marcá tu progreso</strong> con los checkboxes — se guardan en tu navegador.
+    </p>
+  </div>
+  <p id="ej-progress" aria-live="polite"></p>
+
+  <h3>Nivel 1 · El esqueleto — entender qué es un workflow <span class="lvl-note">(sin servidor, sin proyecto: solo un repo vacío)</span></h3>
+
+  <div class="ej" id="ej-1">
+    <div class="ej-head">
+      <input type="checkbox" class="ej-check" id="ejc-1" aria-label="Marcar ejercicio 1 como completado">
+      <label for="ejc-1"><span class="ej-num">Ejercicio 1</span>Tu primer workflow</label>
+      <span class="lvl">Nivel 1</span>
+    </div>
+    <p class="ej-meta">Practicás: secciones 02 y 03 · Necesitás: solo un repo en GitHub</p>
+    <p>
+      Creá el repo <code>laboratorio-cicd</code> y, desde la web o tu editor, el archivo
+      <code>.github/workflows/hola.yml</code> con un workflow que en cada <code>push</code>
+      ejecute un job con dos steps: uno que imprima <code>Hola CI</code> y otro que imprima
+      la fecha (<code>date</code>). Escribilo a mano mirando la sección 02.
+    </p>
+    <p class="ej-done"><strong>Lo lograste si:</strong> en la pestaña <em>Actions</em> hay un
+      run verde, y al abrirlo encontrás tus dos mensajes dentro del log del job.</p>
+    <details class="more"><summary>Pista</summary><div class="inner"><p>
+      El error más común es la indentación: <code>steps:</code> va adentro del job, y cada
+      step arranca con <code>-</code>. Si GitHub dice "workflow file issue", te marca la línea
+      exacta. El segundo error más común: guardar el archivo fuera de
+      <code>.github/workflows/</code> — ahí GitHub ni lo mira.
+    </p></div></details>
+  </div>
+
+  <div class="ej" id="ej-2">
+    <div class="ej-head">
+      <input type="checkbox" class="ej-check" id="ejc-2" aria-label="Marcar ejercicio 2 como completado">
+      <label for="ejc-2"><span class="ej-num">Ejercicio 2</span>Radiografía del runner</label>
+      <span class="lvl">Nivel 1</span>
+    </div>
+    <p class="ej-meta">Practicás: secciones 02 y 04</p>
+    <p>
+      <strong>Antes de correrlo, predecí:</strong> ¿qué va a mostrar <code>ls -la</code>
+      si lo ejecutás <em>antes</em> del <code>checkout</code>? Ahora armá un workflow con
+      esta secuencia de steps: <code>pwd</code> y <code>ls -la</code>, después
+      <code>uname -a</code> y la versión de tu runtime (<code>java -version</code>,
+      <code>node -v</code>, <code>python --version</code>…), después
+      <code>actions/checkout@v5</code>, y de nuevo <code>ls -la</code>.
+    </p>
+    <p class="ej-done"><strong>Lo lograste si:</strong> podés explicar con tus palabras
+      (1) por qué el primer <code>ls</code> está vacío y el segundo no, y (2) por qué tu
+      runtime ya estaba instalado sin que hicieras nada.</p>
+    <details class="more"><summary>Pista</summary><div class="inner"><p>
+      Respuestas en la sección 02 ("el runner arranca vacío") y en la 04 (los runners
+      hosted traen decenas de herramientas preinstaladas). Si tu versión de runtime no
+      es la que necesitás, para eso existen las actions <code>setup-*</code>.
+    </p></div></details>
+  </div>
+
+  <div class="ej" id="ej-3">
+    <div class="ej-head">
+      <input type="checkbox" class="ej-check" id="ejc-3" aria-label="Marcar ejercicio 3 como completado">
+      <label for="ejc-3"><span class="ej-num">Ejercicio 3</span>Un workflow, tres disparadores</label>
+      <span class="lvl">Nivel 1</span>
+    </div>
+    <p class="ej-meta">Practicás: sección 03</p>
+    <p>
+      Modificá tu workflow para que se dispare con <code>push</code> a <code>main</code>,
+      con <code>pull_request</code> hacia <code>main</code>, y con
+      <code>workflow_dispatch</code> que reciba un input <code>nombre</code> y lo salude.
+      Después ejercitá los tres caminos: un push directo, un PR desde una rama nueva,
+      y el botón "Run workflow" con tu nombre.
+    </p>
+    <p class="ej-done"><strong>Lo lograste si:</strong> en Actions hay tres runs con tres
+      orígenes distintos (fijate la columna que indica el evento), y el run manual muestra
+      tu saludo personalizado.</p>
+    <details class="more"><summary>Pista</summary><div class="inner"><p>
+      El input se lee con <code>${{ inputs.nombre }}</code>. Ojo: el botón "Run workflow"
+      recién aparece cuando el workflow con <code>workflow_dispatch</code> ya está en la
+      rama por defecto.
+    </p></div></details>
+  </div>
+
+  <div class="ej" id="ej-4">
+    <div class="ej-head">
+      <input type="checkbox" class="ej-check" id="ejc-4" aria-label="Marcar ejercicio 4 como completado">
+      <label for="ejc-4"><span class="ej-num">Ejercicio 4</span>Romper, leer el log, arreglar</label>
+      <span class="lvl">Nivel 1</span>
+    </div>
+    <p class="ej-meta">Practicás: lectura de logs — la habilidad que más vas a usar</p>
+    <p>
+      Meté un error a propósito: un step que ejecute un comando inexistente
+      (<code>run: comando_que_no_existe</code>) entre dos steps válidos.
+      <strong>Predecí:</strong> ¿corre el step siguiente? Push, y a leer.
+    </p>
+    <p class="ej-done"><strong>Lo lograste si:</strong> (1) encontraste en el log la línea
+      exacta del error y el exit code, (2) confirmaste que el step posterior se salteó,
+      (3) te llegó el mail de GitHub avisando del fallo, y (4) lo arreglaste y el run
+      volvió a verde.</p>
+    <details class="more"><summary>Pista</summary><div class="inner"><p>
+      Este mecanismo — <em>un step falla → el job falla → lo que sigue no corre</em> —
+      es exactamente el "quality gate" de la sección 11. Lo acabás de ver con tus ojos;
+      en el nivel 2 lo vas a usar con tests de verdad.
+    </p></div></details>
+  </div>
+
+  <h3>Nivel 2 · Build y artefactos — el pipeline empieza a producir <span class="lvl-note">(necesitás un proyecto de tu stack, aunque sea mínimo)</span></h3>
+
+  <div class="ej" id="ej-5">
+    <div class="ej-head">
+      <input type="checkbox" class="ej-check" id="ejc-5" aria-label="Marcar ejercicio 5 como completado">
+      <label for="ejc-5"><span class="ej-num">Ejercicio 5</span>Build real con gate de tests</label>
+      <span class="lvl">Nivel 2</span>
+    </div>
+    <p class="ej-meta">Practicás: secciones 05 y 11 · Usá el selector de stack de arriba</p>
+    <p>
+      Subí al repo un proyecto de tu stack con al menos un test (si no tenés uno, generá
+      el esqueleto mínimo con tu herramienta habitual). Armá el job de build de la
+      sección 05: <code>setup-*</code> con cache, tests, empaquetado. Cuando esté verde,
+      <strong>rompé un test a propósito</strong> (cambiá un assert) y pusheá.
+    </p>
+    <p class="ej-done"><strong>Lo lograste si:</strong> con el test roto el pipeline queda
+      rojo y el paso de empaquetado <em>no llegó a ejecutarse</em> — y podés explicar por
+      qué el orden de los steps es el que hace de gate. Después arreglá el test.</p>
+    <details class="more"><summary>Pista</summary><div class="inner"><p>
+      Los steps corren en orden y el primero que falla corta el job. Por eso tests
+      <em>antes</em> que package. Compará con el ejercicio 4: es el mismo mecanismo,
+      ahora con contenido real.
+    </p></div></details>
+  </div>
+
+  <div class="ej" id="ej-6">
+    <div class="ej-head">
+      <input type="checkbox" class="ej-check" id="ejc-6" aria-label="Marcar ejercicio 6 como completado">
+      <label for="ejc-6"><span class="ej-num">Ejercicio 6</span>Dos jobs, un artefacto</label>
+      <span class="lvl">Nivel 2</span>
+    </div>
+    <p class="ej-meta">Practicás: sección 06</p>
+    <p>
+      Partí tu workflow en dos jobs: <code>build</code> (compila y sube el artefacto con
+      <code>upload-artifact</code>) y <code>verificar</code> (con <code>needs: build</code>,
+      lo descarga y lista su contenido con <code>ls -la</code>).
+      <strong>Predecí primero:</strong> ¿qué pasaría si <code>verificar</code> no tuviera
+      <code>needs:</code>? Después sacáselo y comprobalo.
+    </p>
+    <p class="ej-done"><strong>Lo lograste si:</strong> (1) el job <code>verificar</code>
+      muestra tu artefacto, (2) lo descargaste también a tu PC desde la página del run,
+      y (3) viste qué error da sin <code>needs:</code> (los jobs corren en paralelo y el
+      artefacto todavía no existe).</p>
+  </div>
+
+  <div class="ej" id="ej-7">
+    <div class="ej-head">
+      <input type="checkbox" class="ej-check" id="ejc-7" aria-label="Marcar ejercicio 7 como completado">
+      <label for="ejc-7"><span class="ej-num">Ejercicio 7</span>Medir el efecto del cache</label>
+      <span class="lvl">Nivel 2</span>
+    </div>
+    <p class="ej-meta">Practicás: secciones 05 y 16</p>
+    <p>
+      Corré tu build dos veces con <code>cache:</code> activado (la segunda debería
+      aprovecharlo) y una vez con el cache comentado. Anotá la duración de cada run
+      (está en la lista de Actions).
+    </p>
+    <p class="ej-done"><strong>Lo lograste si:</strong> tenés los tres tiempos anotados y
+      encontraste en el log del segundo run la línea donde la action dice que hubo
+      <em>cache hit</em>.</p>
+  </div>
+
+  <h3>Nivel 3 · Ambientes y secrets — la configuración que separa dev de prod <span class="lvl-note">(sin servidor todavía: lo simulamos)</span></h3>
+
+  <div class="ej" id="ej-8">
+    <div class="ej-head">
+      <input type="checkbox" class="ej-check" id="ejc-8" aria-label="Marcar ejercicio 8 como completado">
+      <label for="ejc-8"><span class="ej-num">Ejercicio 8</span>Secrets: ver el enmascarado (y sus límites)</label>
+      <span class="lvl">Nivel 3</span>
+    </div>
+    <p class="ej-meta">Practicás: sección 08 · Solo con valores de juguete, jamás con secrets reales</p>
+    <p>
+      Creá un secret <code>PALABRA_SECRETA</code> con un valor inventado (ej.
+      <code>banana42</code>). En un step, imprimila — sí, a propósito, para esto es el
+      valor de juguete. Después imprimila <em>transformada</em>:
+      <code>echo "${{ secrets.PALABRA_SECRETA }}" | rev</code>.
+    </p>
+    <p class="ej-done"><strong>Lo lograste si:</strong> la primera sale como <code>***</code>
+      y la segunda sale <strong>legible al revés</strong> (<code>24ananab</code>) — acabás de
+      demostrar vos mismo por qué la regla es "nunca imprimir ni transformar secrets":
+      el enmascarado protege el valor exacto, no sus derivados.</p>
+  </div>
+
+  <div class="ej" id="ej-9">
+    <div class="ej-head">
+      <input type="checkbox" class="ej-check" id="ejc-9" aria-label="Marcar ejercicio 9 como completado">
+      <label for="ejc-9"><span class="ej-num">Ejercicio 9</span>Un YAML, dos ambientes</label>
+      <span class="lvl">Nivel 3</span>
+    </div>
+    <p class="ej-meta">Practicás: secciones 07 y 08</p>
+    <p>
+      Creá los environments <code>dev</code> y <code>produccion</code> en Settings, y en
+      cada uno una <em>variable</em> <code>SALUDO</code> con valores distintos. Armá un
+      workflow con <code>workflow_dispatch</code> + input <code>choice</code> del ambiente,
+      cuyo job use <code>environment: ${{ inputs.ambiente }}</code> e imprima
+      <code>${{ vars.SALUDO }}</code>.
+    </p>
+    <p class="ej-done"><strong>Lo lograste si:</strong> dos ejecuciones manuales del
+      <strong>mismo YAML</strong> imprimen saludos distintos según el ambiente elegido.
+      Este es el patrón central del curso: la configuración vive en el ambiente, no en
+      el código.</p>
+  </div>
+
+  <div class="ej" id="ej-10">
+    <div class="ej-head">
+      <input type="checkbox" class="ej-check" id="ejc-10" aria-label="Marcar ejercicio 10 como completado">
+      <label for="ejc-10"><span class="ej-num">Ejercicio 10</span>Mapeo de ramas a ambientes</label>
+      <span class="lvl">Nivel 3</span>
+    </div>
+    <p class="ej-meta">Practicás: sección 10</p>
+    <p>
+      Agregá el job <code>mapear</code> de la sección 10 (el del <code>case</code> con
+      <code>GITHUB_OUTPUT</code>) y un job posterior que use el output como
+      <code>environment:</code> e imprima dónde "desplegaría". Creá la rama
+      <code>develop</code> y pusheá a las dos ramas.
+    </p>
+    <p class="ej-done"><strong>Lo lograste si:</strong> el push a <code>develop</code>
+      resolvió <code>dev</code> y el push a <code>main</code> resolvió
+      <code>produccion</code>, y entendés el viaje del dato:
+      <code>GITHUB_OUTPUT</code> → <code>outputs</code> del job → <code>needs</code> del siguiente.</p>
+    <details class="more"><summary>Pista</summary><div class="inner"><p>
+      Si el output llega vacío, el 99% de las veces es porque faltó declarar el bloque
+      <code>outputs:</code> a nivel job, o el <code>id:</code> del step no coincide.
+    </p></div></details>
+  </div>
+
+  <div class="ej" id="ej-11">
+    <div class="ej-head">
+      <input type="checkbox" class="ej-check" id="ejc-11" aria-label="Marcar ejercicio 11 como completado">
+      <label for="ejc-11"><span class="ej-num">Ejercicio 11</span>La pausa de aprobación</label>
+      <span class="lvl">Nivel 3</span>
+    </div>
+    <p class="ej-meta">Practicás: sección 07 · Requiere repo público (o plan Team/Enterprise)</p>
+    <p>
+      Configurá <em>Required reviewers</em> (vos mismo) en el environment
+      <code>produccion</code> y pusheá a <code>main</code>.
+    </p>
+    <p class="ej-done"><strong>Lo lograste si:</strong> el run quedó en estado
+      <em>Waiting</em>, te llegó la notificación de "review required", y al aprobar
+      desde la UI el job continuó. Esa pausa es la diferencia entre entrega continua
+      y despliegue continuo (sección 01) — la acabás de operar.</p>
+    <details class="more"><summary>Si tu repo es privado con plan Free</summary><div class="inner"><p>
+      Las protection rules no van a estar disponibles (sección 07). Alternativa didáctica:
+      hacé que el deploy a producción solo sea posible vía <code>workflow_dispatch</code>
+      con un input <code>confirmar</code> que deba valer exactamente <code>SI</code>,
+      validado en un step que falle si no coincide.
+    </p></div></details>
+  </div>
+
+  <h3>Nivel 4 · Deploy real — del pipeline al servidor <span class="lvl-note">(acá aparece el servidor; el ejercicio 12 te explica cómo conseguir uno)</span></h3>
+
+  <div class="ej" id="ej-12">
+    <div class="ej-head">
+      <input type="checkbox" class="ej-check" id="ejc-12" aria-label="Marcar ejercicio 12 como completado">
+      <label for="ejc-12"><span class="ej-num">Ejercicio 12</span>Armar tu servidor de práctica</label>
+      <span class="lvl">Nivel 4</span>
+    </div>
+    <p class="ej-meta">Practicás: secciones 09 y 14 (la parte servidor) · Sin pipeline todavía</p>
+    <p>
+      Conseguí un Linux para practicar — cualquiera de estas opciones sirve:
+      (a) una VM local con Multipass o VirtualBox, (b) un contenedor Docker corriendo
+      <code>sshd</code>, (c) un VPS chico (hay opciones gratis o de ~US$5). En él:
+      creá el usuario <code>deploy</code>, generá un par de claves SSH en tu PC
+      (<code>ssh-keygen -t ed25519</code>), poné la pública en
+      <code>authorized_keys</code> del usuario, y creá
+      <code>/opt/deploys/incoming</code> y <code>/opt/deploys/releases</code>.
+    </p>
+    <p class="ej-done"><strong>Lo lograste si:</strong> desde tu PC,
+      <code>ssh deploy@tu-servidor 'echo ok'</code> responde <code>ok</code> sin pedirte
+      password, y el usuario <code>deploy</code> NO puede hacer <code>sudo</code> libremente.</p>
+    <details class="more"><summary>Nota sobre VM/contenedor local</summary><div class="inner"><p>
+      Una VM local sirve para practicar toda la parte de servidor, pero los runners de
+      GitHub no van a poder alcanzarla desde internet. Para el ejercicio 13 tenés dos
+      salidas: usar un VPS con IP pública, o registrar tu propia máquina como
+      <strong>runner self-hosted</strong> (sección 04) que sí llega a tu VM local —
+      configurarlo es un excelente ejercicio extra.
+    </p></div></details>
+  </div>
+
+  <div class="ej" id="ej-13">
+    <div class="ej-head">
+      <input type="checkbox" class="ej-check" id="ejc-13" aria-label="Marcar ejercicio 13 como completado">
+      <label for="ejc-13"><span class="ej-num">Ejercicio 13</span>Primer deploy automatizado</label>
+      <span class="lvl">Nivel 4</span>
+    </div>
+    <p class="ej-meta">Practicás: secciones 08 y 09</p>
+    <p>
+      Cargá <code>DEPLOY_HOST</code>, <code>DEPLOY_USER</code> y <code>DEPLOY_SSH_KEY</code>
+      como secrets del environment <code>dev</code>. Extendé tu workflow: después del build,
+      un job de deploy que copie el artefacto con <code>appleboy/scp-action</code> a
+      <code>/opt/deploys/incoming/</code> y ejecute por SSH un <code>ls -la</code> del
+      directorio.
+    </p>
+    <p class="ej-done"><strong>Lo lograste si:</strong> tras cada push a <code>develop</code>,
+      el artefacto aparece en el servidor con fecha nueva — tu primer deploy sin tocar
+      el servidor a mano. Verificalo entrando por SSH vos mismo.</p>
+  </div>
+
+  <div class="ej" id="ej-14">
+    <div class="ej-head">
+      <input type="checkbox" class="ej-check" id="ejc-14" aria-label="Marcar ejercicio 14 como completado">
+      <label for="ejc-14"><span class="ej-num">Ejercicio 14</span>Health check y rollback (el ejercicio más importante)</label>
+      <span class="lvl">Nivel 4</span>
+    </div>
+    <p class="ej-meta">Practicás: sección 12</p>
+    <p>
+      Agregale a tu app un endpoint <code>/health</code> que devuelva 200. Implementá el
+      script de activación de la sección 12 (adaptado a tu stack) y hacé un deploy sano
+      para confirmar que todo el ciclo funciona. Ahora la parte valiosa:
+      <strong>desplegá a propósito una versión rota</strong> — que el health devuelva 500,
+      o que la app no arranque.
+    </p>
+    <p class="ej-done"><strong>Lo lograste si:</strong> el pipeline terminó <em>rojo</em>
+      pero tu app <em>siguió respondiendo</em> con la versión anterior. Guardá el log de
+      ese run: es la prueba de que tu rollback funciona <em>antes</em> de necesitarlo en
+      serio. Quien llega hasta acá entendió el 80% del valor de CI/CD.</p>
+    <details class="more"><summary>Pista</summary><div class="inner"><p>
+      Probá el script primero a mano en el servidor (copiá un artefacto a
+      <code>incoming/</code> y ejecutalo) antes de meterlo al pipeline: depurar bash por
+      SSH desde Actions es lento. Cuando funcione a mano, recién ahí al YAML.
+    </p></div></details>
+  </div>
+
+  <div class="ej" id="ej-15">
+    <div class="ej-head">
+      <input type="checkbox" class="ej-check" id="ejc-15" aria-label="Marcar ejercicio 15 como completado">
+      <label for="ejc-15"><span class="ej-num">Ejercicio 15</span>Que te avise solo</label>
+      <span class="lvl">Nivel 4</span>
+    </div>
+    <p class="ej-meta">Practicás: sección 13</p>
+    <p>
+      Configurá un webhook (Slack, o Discord si no tenés Slack — el patrón es idéntico)
+      y agregá el job <code>notificar</code> con <code>if: always()</code> y mensaje
+      distinto según el resultado. Probá <strong>los dos caminos</strong>: un run exitoso
+      y uno fallido (ya sabés romper cosas a propósito).
+    </p>
+    <p class="ej-done"><strong>Lo lograste si:</strong> recibiste ambos mensajes, el de
+      fallo te llevó con un click al log del error, y podés explicar qué pasaría sin
+      <code>if: always()</code>.</p>
+  </div>
+
+  <h3>Nivel 5 · Nivel producción — lo que diferencia un pipeline de juguete de uno serio</h3>
+
+  <div class="ej" id="ej-16">
+    <div class="ej-head">
+      <input type="checkbox" class="ej-check" id="ejc-16" aria-label="Marcar ejercicio 16 como completado">
+      <label for="ejc-16"><span class="ej-num">Ejercicio 16</span>Endurecer el pipeline</label>
+      <span class="lvl">Nivel 5</span>
+    </div>
+    <p class="ej-meta">Practicás: secciones 14 y 16</p>
+    <p>
+      Cuatro tareas de seguridad e higiene: (1) <code>permissions: contents: read</code>
+      en tu workflow, (2) pin de las actions de terceros por SHA de commit,
+      (3) <code>.github/dependabot.yml</code> para el ecosistema
+      <code>github-actions</code>, (4) branch protection en <code>main</code> exigiendo
+      PR + el check de build en verde.
+    </p>
+    <p class="ej-done"><strong>Lo lograste si:</strong> un PR con un test roto queda
+      <em>bloqueado para merge</em> (probalo), y en unos días Dependabot te abre su primer
+      PR de actualización — leelo y mergealo: ese flujo también es parte de CI/CD.</p>
+  </div>
+
+  <div class="ej" id="ej-17">
+    <div class="ej-head">
+      <input type="checkbox" class="ej-check" id="ejc-17" aria-label="Marcar ejercicio 17 como completado">
+      <label for="ejc-17"><span class="ej-num">Ejercicio 17</span>No repetirse: workflow reutilizable</label>
+      <span class="lvl">Nivel 5</span>
+    </div>
+    <p class="ej-meta">Practicás: sección 15</p>
+    <p>
+      Extraé tu lógica de deploy a <code>.github/workflows/deploy-reusable.yml</code> con
+      <code>workflow_call</code>, input <code>environment</code> y
+      <code>secrets: inherit</code>, y llamalo desde el workflow principal.
+    </p>
+    <p class="ej-done"><strong>Lo lograste si:</strong> el deploy sigue funcionando igual,
+      tu workflow principal quedó más corto, y un cambio en la lógica de deploy ahora se
+      hace en un solo archivo.</p>
+  </div>
+
+  <div class="ej" id="ej-18">
+    <div class="ej-head">
+      <input type="checkbox" class="ej-check" id="ejc-18" aria-label="Marcar ejercicio 18 como completado">
+      <label for="ejc-18"><span class="ej-num">Ejercicio 18</span>La carrera de deploys</label>
+      <span class="lvl">Nivel 5</span>
+    </div>
+    <p class="ej-meta">Practicás: sección 16 (concurrency)</p>
+    <p>
+      <strong>Predecí:</strong> ¿qué pasa hoy si hacés dos pushes con 10 segundos de
+      diferencia? Probalo y mirá los dos runs. Después agregá el bloque
+      <code>concurrency</code> con <code>cancel-in-progress: false</code> y repetí.
+    </p>
+    <p class="ej-done"><strong>Lo lograste si:</strong> viste la diferencia: sin
+      concurrency los dos corren a la vez (imaginá dos deploys pisándose en el mismo
+      servidor); con concurrency el segundo espera en cola hasta que termina el primero.</p>
+  </div>
+
+  <div class="ej" id="ej-19">
+    <div class="ej-head">
+      <input type="checkbox" class="ej-check" id="ejc-19" aria-label="Marcar ejercicio 19 como completado">
+      <label for="ejc-19"><span class="ej-num">Ejercicio 19</span>Misión GitLab (bonus)</label>
+      <span class="lvl">Nivel 5</span>
+    </div>
+    <p class="ej-meta">Practicás: sección 18 · Necesitás una cuenta en gitlab.com</p>
+    <p>
+      Repetí los ejercicios 1, 5 y 13 en GitLab con <code>.gitlab-ci.yml</code>, usando la
+      tabla de equivalencias de la sección 18. Vas a comprobar en carne propia que los
+      conceptos ya los tenés: solo estás traduciendo sintaxis.
+    </p>
+    <p class="ej-done"><strong>Lo lograste si:</strong> el pipeline está verde en GitLab
+      y podés nombrar tres diferencias concretas de sintaxis y una cosa que te resultó
+      más simple en cada plataforma.</p>
+  </div>
+
+  <div class="ej" id="ej-20">
+    <div class="ej-head">
+      <input type="checkbox" class="ej-check" id="ejc-20" aria-label="Marcar ejercicio 20 como completado">
+      <label for="ejc-20"><span class="ej-num">Ejercicio 20</span>Proyecto final: tu pipeline completo</label>
+      <span class="lvl">Nivel 5</span>
+    </div>
+    <p class="ej-meta">Integra: todo el curso</p>
+    <p>
+      Armá el pipeline de la sección 17 para una app tuya (o el proyecto del laboratorio),
+      <strong>sin copiar el YAML entero</strong>: construilo por partes, entendiendo cada
+      bloque. Checklist de terminado:
+    </p>
+    <ul>
+      <li>Tres environments con sus secrets propios y ramas mapeadas.</li>
+      <li>Tests como gate — nada roto llega a deploy.</li>
+      <li>Un solo artefacto construido una vez y desplegado a todos los ambientes.</li>
+      <li>Aprobación manual (o tu simulación) antes de producción.</li>
+      <li>Rollback automático <em>ensayado</em> (tenés el log del ejercicio 14 que lo prueba).</li>
+      <li>Notificaciones, <code>concurrency</code>, <code>timeout-minutes</code>,
+        <code>permissions</code> mínimos y badge en el README.</li>
+    </ul>
+    <p class="ej-done"><strong>El examen final:</strong> hacé un cambio trivial de una
+      línea en la app y llevalo a producción usando <em>solamente</em>
+      <code>git push</code> y un click de aprobación — sin tocar el servidor, sin pasos
+      manuales, con aviso automático del resultado. Si sale, no "seguiste un tutorial":
+      <strong>sabés hacer CI/CD</strong>. Y si dentro de un mes podés explicarle a otra
+      persona por qué cada pieza está donde está, sabés el doble.</p>
+  </div>
+
+  <div class="callout warn">
+    <span class="tag">Si te trabás</span>
+    <p>
+      Es parte del ejercicio. El orden de auxilio: (1) leé el log completo del step que
+      falló, no solo la última línea; (2) releé la sección del curso vinculada al
+      ejercicio; (3) recién después buscá el error exacto en la documentación oficial o
+      en internet. Resistí la tentación de saltar directo al paso 3: diagnosticar con el
+      log es <em>la</em> habilidad del oficio.
+    </p>
+  </div>
+</section>
+
+<!-- ================= 20 ================= -->
 <section id="recursos">
-  <span class="sec-num">19 · Para seguir</span>
+  <span class="sec-num">20 · Para seguir</span>
   <h2>Recursos y herramientas validadas por la comunidad</h2>
   <ul>
     <li><a href="https://docs.github.com/actions" target="_blank" rel="noopener">Documentación oficial de GitHub Actions</a> — la referencia; el schema completo del YAML está en "Workflow syntax".</li>
@@ -3186,6 +3700,31 @@ deploy-prod:
   var savedTech = null;
   try{ savedTech = localStorage.getItem("cicd-tech"); }catch(e){}
   setTech(TECHS.indexOf(savedTech) !== -1 ? savedTech : "java");
+
+  /* ---------- ejercicios: progreso persistente ---------- */
+  var ejChecks = Array.prototype.slice.call(document.querySelectorAll(".ej-check"));
+  function ejLoad(){ try{ return JSON.parse(localStorage.getItem("cicd-ej") || "{}"); }catch(e){ return {}; } }
+  function ejRefresh(){
+    var done = 0;
+    ejChecks.forEach(function(c){
+      if(c.checked) done++;
+      var card = c.closest ? c.closest(".ej") : null;
+      if(card) card.classList.toggle("done", c.checked);
+    });
+    var p = document.getElementById("ej-progress");
+    if(p) p.textContent = "Tu progreso: " + done + " de " + ejChecks.length + " ejercicios completados" + (done === ejChecks.length && done > 0 ? " — ¡curso dominado! 🎉" : "");
+  }
+  var ejState = ejLoad();
+  ejChecks.forEach(function(c){
+    c.checked = !!ejState[c.id];
+    c.addEventListener("change", function(){
+      var st = ejLoad();
+      st[c.id] = c.checked;
+      try{ localStorage.setItem("cicd-ej", JSON.stringify(st)); }catch(e){}
+      ejRefresh();
+    });
+  });
+  ejRefresh();
 
   /* ---------- progress bar ---------- */
   var bar = document.getElementById("progress");
